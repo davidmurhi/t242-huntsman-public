@@ -6,43 +6,42 @@ class SpiderEnv(gym.Env):
     """
     Gymnasium environment for the 8-legged spider robot.
 
-    NOTE (16 Sep): loaded Kai's spider8_v4_longbody.urdf - it has 16
-    revolute joints (hip + knee per leg, 8 legs), not the 24 described
-    in the original brief (1 horizontal + 2 vertical per leg). No
-    horizontal joint is present in this URDF version. Confirming with
-    Kai whether this is final or a horizontal joint is still coming -
-    update these numbers once confirmed.
+    NOTE (16 Sep): Kai pushed spider8_v5_longbody_3joint.urdf to main -
+    now has 24 revolute joints (hip + knee + ankle per leg, 8 legs),
+    matching Craig's original spec (horizontal + vertical joints per leg).
+    Previous version (spider8_v4_longbody.urdf) only had 16 (hip + knee,
+    no ankle) - that discrepancy is resolved now.
 
-    Action space (16 values):
+    Action space (24 values):
         One value per motor, range -1 to 1 (maps to PWM command per motor).
-        8 legs x 2 joints per leg (hip + knee) = 16 motors.
+        8 legs x 3 joints per leg (hip, knee, ankle) = 24 motors.
 
-    Observation space (20 values):
-        [0:16]  - Joint angles for each of the 16 motors (radians)
-        [16:19] - Body orientation as roll, pitch, yaw (radians)
-        [19]    - Body height / z-position relative to ground
+    Observation space (28 values):
+        [0:24]  - Joint angles for each of the 24 motors (radians)
+        [24:27] - Body orientation as roll, pitch, yaw (radians)
+        [27]    - Body height / z-position relative to ground
     """
 
     def __init__(self):
         super().__init__()
 
-        self.action_space = spaces.Box(low=-1, high=1, shape=(16,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1, high=1, shape=(24,), dtype=np.float32)
 
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(20,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(28,), dtype=np.float32
         )
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         # Placeholder - Kai replaces with real PyBullet reset (load URDF, reset joints)
-        observation = np.zeros(20, dtype=np.float32)
+        observation = np.zeros(28, dtype=np.float32)
         info = {}
         return observation, info
 
     def step(self, action):
         # Placeholder - Kai plugs in: apply `action` as PWM/joint targets in
         # PyBullet, step physics forward, read back joint angles + orientation
-        observation = np.zeros(20, dtype=np.float32)
+        observation = np.zeros(28, dtype=np.float32)
         reward = 0.0
         terminated = False
         truncated = False
