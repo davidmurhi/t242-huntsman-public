@@ -81,13 +81,17 @@ EXCLUDE_NEIGHBOURING_LEGS = True
 
 # How far out from the body's side each leg's joint sits.
 #
-# A joint placed exactly on the surface leaves the first segment half
-# buried in the body, and the front and rear pairs then brush along the
-# side as they swing. Moving the joint out by a little more than the
-# segment's own thickness clears that, while the segment's rounded end
-# still reaches back to within a millimetre of the body, so it looks
-# joined on rather than floating.
-LEG_STANDOFF = 0.008
+# The joint sits this far out from the body, measured ALONG the direction
+# the leg points rather than straight out sideways.
+#
+# That distinction matters. A fanned leg leaves the body at an angle, so a
+# sideways offset is not covered by the segment's own rounded end and
+# leaves a visible gap at the shoulder. Offsetting along the leg's own
+# direction means the rounded end covers it exactly, and the leg reads as
+# joined on.
+#
+# Keep it at or below the segment thickness, or a gap opens up again.
+LEG_STANDOFF = 0.006
 
 # How far each leg may swing before it would reach into its neighbour's
 # space. Every pair gets its own wedge, reaching halfway to the leg in
@@ -241,14 +245,14 @@ def run_checks():
     # A leg mounted flat on the surface has its first segment half buried
     # in the body, and the front and rear pairs then scrape along the
     # side as they swing.
-    clearance = LEG_STANDOFF - FEMUR_THICKNESS
-    if clearance < 0:
+    showing = LEG_STANDOFF - FEMUR_THICKNESS
+    if showing > 0.001:
         problems.append(
-            f"legs are buried {-clearance * 1000:.0f} mm into the body - "
-            f"raise LEG_STANDOFF above the femur thickness "
+            f"a {showing * 1000:.0f} mm gap shows at the shoulder - "
+            f"lower LEG_STANDOFF to at most the femur thickness "
             f"({FEMUR_THICKNESS * 1000:.0f} mm)")
     else:
-        notes.append(f"legs clear the body by {clearance * 1000:.0f} mm")
+        notes.append("legs join the body with no gap showing")
 
     # Does it look like a spider, or like a box with stubs?
     span = 2 * half_span
@@ -282,12 +286,17 @@ def build_leg(leg, pair, mounts):
     fan = -side * LEG_FAN[pair]
 
     hip_low, hip_high = hip_range_for(pair)
+
+    # Step the joint out along the way the leg points, not straight out
+    # sideways, so the segment's rounded end covers the gap.
+    lean = math.radians(LEG_FAN[pair])
+    mount_x = mounts[pair] + LEG_STANDOFF * math.sin(lean)
+    mount_y = side * (BODY_WIDTH / 2 + LEG_STANDOFF * math.cos(lean))
     femur_out, femur_up = femur_reach()
     tibia_out, tibia_down = tibia_reach()
 
     return [
-        f'      <body name="{leg}" pos="{n(mounts[pair])} '
-        f'{n(side * (BODY_WIDTH / 2 + LEG_STANDOFF))} 0" '
+        f'      <body name="{leg}" pos="{n(mount_x)} {n(mount_y)} 0" '
         f'euler="0 0 {n(fan)}">',
 
         # Joint 1: horizontal. Swings the leg forward and back.

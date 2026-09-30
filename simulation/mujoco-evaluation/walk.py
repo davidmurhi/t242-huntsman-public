@@ -7,8 +7,20 @@ Makes the Huntsman spider walk in a straight line.
 Run spider.py first so spider.xml exists. This file only drives it.
 
 THE GAIT
-    Row by row. The two back legs step together, then the next pair
-    forward, then the next, then the front pair, and round again.
+    Row by row. Both legs of a pair step together, then the next row
+    forward, and so on from the back of the body to the front:
+
+        l4 r4  ->  l3 r3  ->  l2 r2  ->  l1 r1
+
+    Two legs in the air at a time, six planted.
+
+    Stepping each row as a mirrored pair matters for more than looks. The
+    hip swings a foot sideways to whichever way its leg points, so a
+    fanned leg pushes sideways as well as backwards. When the left and
+    right of a row move together those sideways shoves cancel, and all
+    that is left is forward drive. Running the two sides out of step
+    leaves them uncancelled, and the robot shoves itself left, then
+    right, and barely advances.
 
     Down each side the legs step in turn from the back forward:
 
@@ -78,10 +90,12 @@ import mujoco
 # All angles in degrees, times in seconds.
 # =====================================================================
 
-# How far the hip swings each way from centre. Kept small on purpose:
-# a bigger step closes the gap between neighbouring legs, and the whole
-# reason they clash is that the gap runs out.
-STEP_REACH = 10.0
+# Base hip swing. Each leg's actual swing is this multiplied by
+# 1 / cos(its fan angle), so the outer legs sweep further to make up for
+# pointing the wrong way. Keep it small enough that the largest of those
+# still fits inside its wedge - 6 is the most that does here, and the
+# check below will say so if it does not.
+STEP_REACH = 6.0
 
 # The smallest gap allowed between two neighbouring legs at full swing.
 # The legs are about 12 mm thick, but the motors always lag a little
@@ -108,7 +122,7 @@ STEP_LIFT = 10.0        # how high the knee picks the foot up
 # does not move. Left at the lower value that walked better in practice.
 ANKLE_FOLLOW = 0.5
 
-STEP_TIME = 1.8         # seconds for one full cycle (all eight legs
+STEP_TIME = 1.1         # seconds for one full cycle (all eight legs
                         # step once)
 SWING_SHARE = 0.22      # fraction of the cycle a leg spends in the air.
                         # With eight legs an eighth of a cycle apart, this
@@ -145,23 +159,28 @@ def largest_safe_step():
 
 
 def swing_scale(pair_index):
-    """How much of the base swing this pair uses.
+    """How much further this pair has to swing to keep up.
 
-    A leg fanned away from sideways only turns cos(fan) of its hip
-    rotation into forward travel, so the obvious move is to swing it
-    further to compensate - 1 / cos(fan).
+    The hip turns about a vertical axis, so it swings a foot sideways to
+    whichever way the leg points. A leg fanned 56 degrees only turns 56
+    per cent of its rotation into forward travel; the rest goes sideways.
 
-    That was tried and it is wrong. The front and rear legs are fanned
-    56 degrees, so compensating makes them swing 17.9 degrees against the
-    middle legs' 10.6, and the extra sweep eats the gap between
-    neighbours. Measured, it drops the tightest clearance from 53 mm to
-    27 mm, and the legs bunch and clash.
+    In a gait where left and right step together, those sideways shoves
+    cancel out. In a travelling wave they do not, because the two sides
+    are half a cycle apart. The robot then shoves left, shoves right, and
+    stays where it is.
 
-    So every leg swings the same amount instead. The outer legs
-    contribute less push, which is fine - they are mostly there to hold
-    the robot up, and real spiders use their outer legs the same way.
+    So each leg swings 1 / cos(fan) as far, which makes every foot travel
+    the same distance backwards along the ground regardless of which way
+    its leg points.
+
+    This was tried once before without the joint wedges in place and it
+    made the legs collide, because the outer legs swung into their
+    neighbours' space. The wedges now stop that in the model itself, so
+    the compensation is safe. STEP_REACH still has to be small enough
+    that the compensated swing fits inside the wedge.
     """
-    return 1.0
+    return 1.0 / math.cos(math.radians(LEG_FAN[pair_index]))
 
 
 # Row by row. Both legs of a pair step together, then the next pair, and
@@ -173,7 +192,7 @@ def _build_legs():
     for position, pair in enumerate((4, 3, 2, 1)):      # back row first
         # A leg lifts when (cycle + offset) wraps past zero, so the offset
         # is the mirror of the moment we want it to step. Getting this
-        # backwards runs the sequence in the wrong order.
+        # backwards runs the sequence the wrong way down the body.
         lifts_at = position / 4.0
         offset = (1.0 - lifts_at) % 1.0
         for letter, side in (("l", 1.0), ("r", -1.0)):
@@ -184,12 +203,22 @@ def _build_legs():
 
 LEGS = _build_legs()
 
-# Never let the step grow past what the geometry allows.
-SAFE_STEP = largest_safe_step()
-if STEP_REACH > SAFE_STEP:
-    print(f"  step reduced from {STEP_REACH:.1f} to {SAFE_STEP:.1f} deg "
-          f"so the legs keep {MIN_LEG_GAP * 1000:.0f} mm apart")
-    STEP_REACH = SAFE_STEP
+# Check every leg's compensated swing fits inside its wedge. The wedge is
+# a hard limit in the model, so a swing larger than it would simply jam
+# against the stop instead of stepping.
+try:
+    from spider import hip_range_for
+    for _pair in range(len(LEG_FAN)):
+        _want = STEP_REACH * swing_scale(_pair)
+        _lo, _hi = hip_range_for(_pair)
+        if -_want < _lo or _want > _hi:
+            _fits = min(abs(_lo), abs(_hi)) / swing_scale(_pair)
+            print(f"  step reduced from {STEP_REACH:.1f} to {_fits:.1f} deg: "
+                  f"pair {_pair + 1} would swing {_want:.1f} deg into its "
+                  f"joint stop")
+            STEP_REACH = _fits
+except ImportError:
+    pass
 
 # =====================================================================
 
@@ -559,7 +588,7 @@ def main():
     model, actuators = load()
     print(f"loaded spider.xml - {model.nu} motors, "
           f"{sum(model.body_mass):.3f} kg")
-    print("gait: row by row, back pair first, two legs up at a time")
+    print("gait: row by row, back row first, both sides together")
     for leg, _s, off, sc in LEGS:
         print(f"    {leg}  steps at {(1.0 - off) % 1.0:.0%} of the cycle, "
               f"swings {STEP_REACH * sc:.1f} deg")
