@@ -1,0 +1,128 @@
+:root {
+	--bg: #121412;
+	--panel: #1b1e1b;
+	--panel-2: #232723;
+	--line: #2f342f;
+	--line-soft: #262b26;
+	--edge: #3a403a;
+	--text: #e8eae4;
+	--dim: #9aa196;
+	--amber: #f2a541;
+	--ok: #5fc9a1;
+	--danger: #ff5a4d;
+	--font-display: 'Barlow Condensed', sans-serif;
+	--font-body: 'Barlow', sans-serif;
+	--font-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	height: 100%;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-body);
+}
+
+a {
+	color: var(--text);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--amber);
+}
+
+button {
+	font-family: var(--font-body);
+	cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible {
+	outline: 2px solid var(--amber);
+	outline-offset: 2px;
+}
+
+/* Shared building blocks used by every screen */
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.panel-title {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: 16px;
+	letter-spacing: 0.1em;
+	color: var(--dim);
+	text-transform: uppercase;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 0;
+	border-top: 1px solid var(--line-soft);
+}
+
+.row .label {
+	font-size: 14px;
+	color: var(--dim);
+}
+
+.mono {
+	font-family: var(--font-mono);
+}
+
+.dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.bar {
+	height: 10px;
+	border-radius: 5px;
+	background: var(--line);
+	overflow: hidden;
+}
+
+.bar > span {
+	display: block;
+	height: 100%;
+	border-radius: 5px;
+}
+
+.btn {
+	height: 48px;
+	border-radius: 6px;
+	border: 1px solid var(--edge);
+	background: var(--panel-2);
+	color: var(--text);
+	font-weight: 600;
+	font-size: 15px;
+}
+
+.btn-primary {
+	border: 0;
+	background: var(--amber);
+	color: var(--bg);
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 18px;
+	letter-spacing: 0.1em;
+	height: 52px;
+}
