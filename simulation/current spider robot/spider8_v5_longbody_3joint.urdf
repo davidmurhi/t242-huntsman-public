@@ -1,0 +1,310 @@
+<?xml version="1.0"?>
+<robot name="spider8_v5_longbody">
+
+  <material name="body_color"><color rgba="0.15 0.15 0.18 1"/></material>
+  <material name="leg_color"><color rgba="0.8 0.2 0.2 1"/></material>
+  <material name="foot_color"><color rgba="0.1 0.1 0.1 1"/></material>
+
+  <link name="base_link">
+    <visual><geometry><box size="1 0.3 0.06"/></geometry><material name="body_color"/></visual>
+    <collision><geometry><box size="1 0.3 0.06"/></geometry></collision>
+    <inertial><mass value="2.0"/><inertia ixx="0.03" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.05"/></inertial>
+  </link>
+
+  <!-- Leg l1 -->
+  <link name="l1_upper">
+    <visual><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l1_hip" type="revolute">
+    <parent link="base_link"/><child link="l1_upper"/>
+    <origin xyz="0.4 0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="l1_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l1_knee" type="revolute">
+    <parent link="l1_upper"/><child link="l1_lower"/>
+    <origin xyz="0 0.24 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="l1_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="l1_ankle" type="revolute">
+    <parent link="l1_lower"/><child link="l1_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg r1 -->
+  <link name="r1_upper">
+    <visual><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r1_hip" type="revolute">
+    <parent link="base_link"/><child link="r1_upper"/>
+    <origin xyz="0.4 -0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="r1_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r1_knee" type="revolute">
+    <parent link="r1_upper"/><child link="r1_lower"/>
+    <origin xyz="0 -0.24 0" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="r1_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="r1_ankle" type="revolute">
+    <parent link="r1_lower"/><child link="r1_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg l2 -->
+  <link name="l2_upper">
+    <visual><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l2_hip" type="revolute">
+    <parent link="base_link"/><child link="l2_upper"/>
+    <origin xyz="0.13333 0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="l2_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l2_knee" type="revolute">
+    <parent link="l2_upper"/><child link="l2_lower"/>
+    <origin xyz="0 0.24 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="l2_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="l2_ankle" type="revolute">
+    <parent link="l2_lower"/><child link="l2_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg r2 -->
+  <link name="r2_upper">
+    <visual><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r2_hip" type="revolute">
+    <parent link="base_link"/><child link="r2_upper"/>
+    <origin xyz="0.13333 -0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="r2_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r2_knee" type="revolute">
+    <parent link="r2_upper"/><child link="r2_lower"/>
+    <origin xyz="0 -0.24 0" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="r2_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="r2_ankle" type="revolute">
+    <parent link="r2_lower"/><child link="r2_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg l3 -->
+  <link name="l3_upper">
+    <visual><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l3_hip" type="revolute">
+    <parent link="base_link"/><child link="l3_upper"/>
+    <origin xyz="-0.13333 0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="l3_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l3_knee" type="revolute">
+    <parent link="l3_upper"/><child link="l3_lower"/>
+    <origin xyz="0 0.24 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="l3_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="l3_ankle" type="revolute">
+    <parent link="l3_lower"/><child link="l3_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg r3 -->
+  <link name="r3_upper">
+    <visual><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r3_hip" type="revolute">
+    <parent link="base_link"/><child link="r3_upper"/>
+    <origin xyz="-0.13333 -0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="r3_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r3_knee" type="revolute">
+    <parent link="r3_upper"/><child link="r3_lower"/>
+    <origin xyz="0 -0.24 0" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="r3_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="r3_ankle" type="revolute">
+    <parent link="r3_lower"/><child link="r3_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg l4 -->
+  <link name="l4_upper">
+    <visual><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 0.12 0" rpy="-1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l4_hip" type="revolute">
+    <parent link="base_link"/><child link="l4_upper"/>
+    <origin xyz="-0.4 0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="l4_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="l4_knee" type="revolute">
+    <parent link="l4_upper"/><child link="l4_lower"/>
+    <origin xyz="0 0.24 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="l4_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="l4_ankle" type="revolute">
+    <parent link="l4_lower"/><child link="l4_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+  <!-- Leg r4 -->
+  <link name="r4_upper">
+    <visual><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry><material name="leg_color"/></visual>
+    <collision><origin xyz="0 -0.12 0" rpy="1.5708 0 0"/><geometry><cylinder radius="0.028" length="0.24"/></geometry></collision>
+    <inertial><mass value="0.08"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r4_hip" type="revolute">
+    <parent link="base_link"/><child link="r4_upper"/>
+    <origin xyz="-0.4 -0.16 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7" upper="0.7" effort="25" velocity="6"/>
+  </joint>
+
+  <link name="r4_lower">
+    <visual><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.15" rpy="0 0 0"/><geometry><cylinder radius="0.024" length="0.3"/></geometry></collision>
+    <inertial><mass value="0.05"/><inertia ixx="0.0003" ixy="0" ixz="0" iyy="0.0003" iyz="0" izz="0.0003"/></inertial>
+  </link>
+  <joint name="r4_knee" type="revolute">
+    <parent link="r4_upper"/><child link="r4_lower"/>
+    <origin xyz="0 -0.24 0" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.3" upper="1.4" effort="25" velocity="6"/>
+  </joint>
+  <link name="r4_foot">
+    <visual><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry><material name="foot_color"/></visual>
+    <collision><origin xyz="0 0 -0.08" rpy="0 0 0"/><geometry><cylinder radius="0.02" length="0.16"/></geometry></collision>
+    <inertial><mass value="0.03"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>
+  </link>
+  <joint name="r4_ankle" type="revolute">
+    <parent link="r4_lower"/><child link="r4_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="-0.6" upper="0.6" effort="20" velocity="6"/>
+  </joint>
+
+
+</robot>
