@@ -379,6 +379,13 @@ def window(robot, gait, commands, loop_once, dt):
             == glfw.PRESS
         mouse["x"], mouse["y"] = glfw.get_cursor_pos(win)
 
+    def move_camera(action, dx, dy):
+        # MuJoCo 3.3+ dropped the scene argument; older versions need it.
+        try:
+            mj.mjv_moveCamera(model, action, dx, dy, cam)
+        except TypeError:
+            mj.mjv_moveCamera(model, action, dx, dy, scene, cam)
+
     def on_move(_w, x, y):
         dx, dy = x - mouse["x"], y - mouse["y"]
         mouse["x"], mouse["y"] = x, y
@@ -387,11 +394,10 @@ def window(robot, gait, commands, loop_once, dt):
         _w2, h = glfw.get_window_size(win)
         action = (mj.mjtMouse.mjMOUSE_ROTATE_V if mouse["left"]
                   else mj.mjtMouse.mjMOUSE_MOVE_V)
-        mj.mjv_moveCamera(model, action, dx / h, dy / h, scene, cam)
+        move_camera(action, dx / max(1, h), dy / max(1, h))
 
     def on_scroll(_w, _x, y):
-        mj.mjv_moveCamera(model, mj.mjtMouse.mjMOUSE_ZOOM, 0.0, -0.05 * y,
-                          scene, cam)
+        move_camera(mj.mjtMouse.mjMOUSE_ZOOM, 0.0, -0.05 * y)
 
     glfw.set_key_callback(win, on_key)
     glfw.set_mouse_button_callback(win, on_button)
