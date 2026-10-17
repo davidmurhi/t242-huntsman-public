@@ -103,7 +103,9 @@ def paint(part, skin, mirror=False, text=True):
         rp = r * s
         d.ellipse([x - rp, y - rp, x + rp, y + rp], fill=HOLE,
                   outline=line, width=max(1, edge - 1))
-    for hp in skin.get("hole_polys", []):
+    # The body plate's cut-outs are filled by the servos that sit in them,
+    # so the plate is drawn plain, as in Ronan's renders.
+    for hp in ([] if part == "body" else skin.get("hole_polys", [])):
         pts = [to_px(u, v) for u, v in hp]
         d.polygon(pts, fill=HOLE)
         d.line(pts + [pts[0]], fill=line, width=max(1, edge - 1), joint="curve")
