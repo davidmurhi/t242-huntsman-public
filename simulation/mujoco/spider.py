@@ -16,8 +16,9 @@ whose part file was not in the pack.
     servos       24 x 9imod DSC55MG    from 9imod 55kg.ipt
     femur        2 U-brackets          from Servo Bracket - U Shaped bis.ipt
     lower leg    acrylic truss         from acrylic leg.ipt
-    leg layout   front pair 30 deg forward, middle pairs straight out,
-                 rear pair 23 deg back, hips 62 mm apart along each side
+    leg layout   front pair 23 deg forward, middle pairs straight out,
+                 rear pair 30 deg back, hips 62 mm apart along each side
+    front        the end without the battery; the battery rides at the back
     mass         4.326 kg              Ronan's part-weight sheet
 
 RUN
@@ -57,7 +58,7 @@ TIBIA_ANGLE_DOWN = 72.0        # lower leg this far below level
 # pack, so it is a box sized from Ronan's top-view render, placed where
 # bot.iam puts it. Its mass is the 867 g 'Payload' line on the sheet.
 PAYLOAD_SIZE = (0.129, 0.093, 0.060)
-PAYLOAD_CENTRE_X = -0.040
+PAYLOAD_CENTRE_X = 0.040
 PAYLOAD_MASS = 0.867
 
 # Servos: 9imod DSC55MG, 55 kg.cm = 5.39 N.m at stall. Confirm at the 8 V
@@ -74,16 +75,26 @@ FOOT_RADIUS = 0.005
 FOOT_CLEARANCE = 0.003
 MIN_LEG_GAP = 0.004            # closest neighbouring legs may come
 
-# Colours, matched to Ronan's renders.
+# Colours, matched to Ronan's renders (MuJoCo lights brighter than
+# Inventor, so these sit a shade darker than the render looks).
 COLOURS = {
-    "body": "0.62 0.63 0.65 1",
-    "Battery LxT 18V v7": "0.20 0.20 0.21 1",
-    "9imod 55kg": "0.30 0.30 0.31 1",
-    "Servo Bracket - U Shaped bis": "0.22 0.22 0.19 1",
-    "Multi Purpose Bracket": "0.26 0.26 0.23 1",
-    "Servo Mount - Horn Frame": "0.85 0.86 0.88 1",
-    "acrylic leg": "0.04 0.04 0.05 1",
+    "body": "0.46 0.47 0.49 1",
+    "Battery LxT 18V v7": "0.17 0.17 0.18 1",
+    "9imod 55kg": "0.21 0.21 0.22 1",
+    "Servo Bracket - U Shaped bis": "0.16 0.16 0.13 1",
+    "Multi Purpose Bracket": "0.19 0.19 0.16 1",
+    "Servo Mount - Horn Frame": "0.70 0.71 0.73 1",
+    "acrylic leg": "0.03 0.03 0.035 1",
+    "horn": "0.92 0.92 0.93 1",
+    "spline": "0.62 0.63 0.66 1",
 }
+# Parts drawn but not collided with: horn hardware is inside the envelope
+# of the parts it is bolted to.
+VISUAL_ONLY = {"Servo Mount - Horn Frame", "horn", "spline"}
+
+# The Makita battery sits in a light-grey slide mount ('Makitabattery' in
+# bot.iam, not in the pack). Drawn from the render, no collision, no mass.
+BATTERY_MOUNT_RISE = 0.022      # how far up the battery the mount comes
 
 # =====================================================================
 
@@ -116,7 +127,8 @@ def load_cad():
 
 
 def name_legs(cad):
-    """CAD legs -> l1..l4, r1..r4. Left is +y; pair 1 is the battery end."""
+    """CAD legs -> l1..l4, r1..r4. Left is +y; pair 1 is the front, the
+    end without the battery."""
     named = {}
     for side, letter in ((1, "l"), (-1, "r")):
         group = [lg for lg in cad["legs"]
@@ -141,8 +153,15 @@ def pose_leg(lg):
     links = {k: [(p["name"], p["part"], p["mass"], np.array(p["vertices"]))
                  for p in v] for k, v in lg["links"].items()}
 
-    out = tip[:2] - hip[:2]
-    out = np.array([out[0], out[1], 0.0]) / np.linalg.norm(out)
+    # Which way the leg points comes from the knee servo's shaft in the
+    # CAD, which is square to the leg, rather than from where the foot
+    # happens to be.
+    shaft = np.array(lg["joints"]["knee"]["axis"], float)
+    shaft[2] = 0.0
+    out = np.cross(shaft, [0.0, 0.0, 1.0])
+    out /= np.linalg.norm(out)
+    if out[:2] @ (tip - hip)[:2] < 0:
+        out = -out
     lift = np.cross(out, [0.0, 0.0, 1.0])      # rotating +about this raises
 
     def turn(points, pivot, axis, deg):
@@ -196,7 +215,8 @@ def total_mass(cad):
 def leg_cloud(L, swing=0.0):
     """All femur and tibia vertices of a leg, optionally swung at the hip."""
     pts = np.vstack([v for link in ("femur", "tibia")
-                     for _a, _b, _m, v in L["links"][link]])
+                     for _a, part, _m, v in L["links"][link]
+                     if part not in VISUAL_ONLY])
     if swing:
         pts = (pts - L["pivot"]["hip"]) @ rot([0, 0, 1], swing).T \
             + L["pivot"]["hip"]
@@ -276,17 +296,28 @@ def build_model():
     for p in cad["body"]:
         m = f"m_{p['name']}"
         assets.append(mesh_asset(m, p["vertices"], np.zeros(3)))
-        body.append("      " + part_geom(p["name"], m, p["part"], p["mass"]))
-    # Makita battery livery from the render: yellow band near the base.
+        body.append("      " + part_geom(p["name"], m, p["part"], p["mass"],
+                                          p["part"] not in VISUAL_ONLY))
+    # Makita battery livery from the render: light-grey slide mount at the
+    # base, yellow band above it, charcoal housing on top.
     bat = np.array(next(p["vertices"] for p in cad["body"]
                         if p["part"] == "Battery LxT 18V v7"))
     lo, hi = bat.min(0), bat.max(0)
     mid, half = (lo + hi) / 2, (hi - lo) / 2
-    body.append(f'      <geom name="battery_band" type="box" size="'
-                f'{n(half[0] * 0.92)} {n(half[1] + 0.001)} {n(0.006)}" '
-                f'pos="{n(mid[0])} {n(mid[1])} {n(lo[2] + (hi[2] - lo[2]) * 0.28)}"'
-                f' rgba="0.98 0.72 0.05 1" density="0" contype="0" '
+    plate_top = 0.0
+    mount_top = lo[2] + BATTERY_MOUNT_RISE
+    body.append(f'      <geom name="battery_mount" type="box" size="'
+                f'{n(half[0] + 0.004)} {n(half[1] + 0.004)} '
+                f'{n((mount_top - plate_top) / 2)}" pos="{n(mid[0])} '
+                f'{n(mid[1])} {n((mount_top + plate_top) / 2)}" '
+                f'rgba="0.72 0.73 0.74 1" density="0" contype="0" '
                 f'conaffinity="0"/>')
+    band_lo, band_hi = mount_top, mount_top + 0.011
+    body.append(f'      <geom name="battery_band" type="box" size="'
+                f'{n(half[0] + 0.0015)} {n(half[1] + 0.0015)} '
+                f'{n((band_hi - band_lo) / 2)}" pos="{n(mid[0])} {n(mid[1])} '
+                f'{n((band_hi + band_lo) / 2)}" rgba="0.96 0.70 0.06 1" '
+                f'density="0" contype="0" conaffinity="0"/>')
     pl, pw, ph = PAYLOAD_SIZE
     body.append(f'      <geom name="payload" type="box" size="{n(pl / 2)} '
                 f'{n(pw / 2)} {n(ph / 2)}" pos="{n(PAYLOAD_CENTRE_X)} 0 '
@@ -319,7 +350,7 @@ def build_model():
             for k, (pname, part, mass, verts) in enumerate(L["links"][link]):
                 m = f"m_{leg}_{link}_{k}"
                 assets.append(mesh_asset(m, verts, origin))
-                collide = part != "Servo Mount - Horn Frame"
+                collide = part not in VISUAL_ONLY
                 lines.append(f"{indent}  " + part_geom(
                     f"{leg}_{link}_{k}", m, part, mass, collide))
             if link == "tibia":
@@ -382,10 +413,12 @@ def build_model():
     ranges = {"hip": HIP_RANGE, "knee": KNEE_RANGE, "ankle": ANKLE_RANGE}
     for leg in LEG_NAMES:
         for j in JOINTS:
+            # MuJoCo converts joint ranges to radians but NOT actuator
+            # control ranges: servo targets are always radians.
+            lo, hi = (math.radians(a) for a in ranges[j])
             xml.append(f'    <position name="{leg}_{j}" joint="{leg}_{j}" '
-                       f'kp="{n(gains[j])}" ctrlrange="{n(ranges[j][0])} '
-                       f'{n(ranges[j][1])}" forcerange="-{n(SERVO_TORQUE)} '
-                       f'{n(SERVO_TORQUE)}"/>')
+                       f'kp="{n(gains[j])}" ctrlrange="{n(lo)} {n(hi)}" '
+                       f'forcerange="-{n(SERVO_TORQUE)} {n(SERVO_TORQUE)}"/>')
     xml += [
         "  </actuator>",
         "  <sensor>",
@@ -406,7 +439,7 @@ def _fans():
         return tuple(round((leg_fan(legs[f"l{p}"]) + leg_fan(legs[f"r{p}"]))
                            / 2.0, 1) for p in (1, 2, 3, 4))
     except SystemExit:
-        return (30.0, 0.0, 0.0, -22.7)
+        return (22.7, 0.0, 0.0, -30.0)
 
 
 LEG_FAN = _fans()

@@ -36,10 +36,33 @@ python3 cad/extract_cad.py path/to/Huntsman/
 |---|---|
 | body plate 349 x 230 x 5 mm | standing pose (taken from Ronan's photos) |
 | hip positions, 62 mm apart along each side | servo gains |
-| leg fans: ~30 deg front, 0 middle, ~23 deg rear | `case2` payload box (sized from the render) |
+| leg fans: 22.7 deg front, 0 middle, 30 deg rear | `case2` payload box (sized from the render) |
 | femur 106 mm, acrylic lower leg 148 mm | `rear rail v2`, `Makitabattery` mount |
 | every part's shape | |
 | masses: Ronan's weight sheet, 4.326 kg | |
+
+## How it walks (measured in MuJoCo 3.3)
+
+| over 30 s on flat ground | |
+|---|---|
+| distance | 3.0 m forward (10 cm/s), battery at the back |
+| off its line | under 2 cm |
+| body tilt | under 1 deg |
+| leg-to-leg contact | none |
+| servos at their torque limit | about 3% of the time |
+
+The gait is a paired wave: four beats, two legs up per beat, six planted.
+The two middle legs on a side always step together (their brackets are
+6 mm apart), and front/rear pairs step together so their sideways pushes
+cancel. Heading hold steers back to the starting line by lengthening one
+side's stride, as the real robot will with its IMU; the legs are one
+assembly repeated rather than mirrored, so without it the robot crabs
+about 6% sideways.
+
+**Servo targets are radians.** MuJoCo converts joint ranges to radians
+under `angle="degree"` but not actuator control ranges, so `walk.py`
+converts every target. Earlier versions sent degrees, which drove every
+servo into its stop.
 
 ## Findings for V Source
 
@@ -56,6 +79,6 @@ python3 cad/extract_cad.py path/to/Huntsman/
 | file | purpose |
 |---|---|
 | `spider.py` | builds the robot from `cad/huntsman_cad.json`, prints the build report and checks |
-| `walk.py` | paired wave gait: two legs up per beat, middle legs always together |
+| `walk.py` | paired wave gait with heading hold: two legs up per beat, middle legs always together |
 | `cad/` | Inventor reader, extractor and the extracted geometry |
 | `diagnostics/` | contact, pose and actuator probes used while tuning |

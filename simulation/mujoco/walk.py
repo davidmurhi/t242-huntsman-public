@@ -65,12 +65,23 @@ import mujoco
 # THE WALK - numbers to tune. Angles in degrees, times in seconds.
 # =====================================================================
 
-STEP_REACH = 8.0        # hip swing either side of centre
+STEP_REACH = 12.0       # hip swing either side of centre
 STEP_LIFT = 15.0        # knee lift at the top of the step (~25 mm of foot)
 ANKLE_FOLLOW = 1.0      # ankle turns back by this share of the knee lift
-STEP_TIME = 1.6         # seconds for a full cycle (all 8 legs step once)
+STEP_TIME = 0.9         # seconds for a full cycle (all 8 legs step once)
 SWING_SHARE = 0.22      # share of the cycle each leg spends in the air
 EASE_IN = 1.5           # seconds to grow from standing to full stride
+
+# Heading hold. The eight legs are one CAD assembly repeated, not mirror
+# images, so the servo horns sit on opposite sides left and right and the
+# robot slowly crabs and turns if driven blind. Like the real robot will
+# with its IMU, the gait watches the body's heading and how far it has
+# drifted off its starting line, and lengthens one side's stride to steer
+# back. Set HEADING_HOLD = False to see the uncorrected walk.
+HEADING_HOLD = True
+STEER_GAIN = 4.0        # stride change per radian of heading error
+LINE_GAIN = 3.0         # heading aimed back at the line per metre off it
+MAX_STEER = 0.35        # never change a side's stride by more than this
 
 SPEED_STEP = 0.1
 FASTEST, SLOWEST = 0.6, 4.0
@@ -78,7 +89,7 @@ FASTEST, SLOWEST = 0.6, 4.0
 try:
     from spider import LEG_FAN
 except ImportError:
-    LEG_FAN = (30.0, 0.0, 0.0, -22.7)
+    LEG_FAN = (22.7, 0.0, 0.0, -30.0)
 
 # Which beat (0-3) each leg steps on.
 BEATS = {"l2": 0, "l3": 0, "r1": 1, "r4": 1,
@@ -120,19 +131,50 @@ def leg_targets(phase, reach):
     return reach - 2.0 * reach * through, 0.0
 
 
+_line = {}
+
+
+def steering(data, elapsed):
+    """How much to lengthen the right side's stride (and shorten the
+    left's) to hold a straight line. Positive turns the robot left."""
+    if not HEADING_HOLD or not hasattr(data, "qpos"):
+        return 0.0
+    w, x, y, z = (float(v) for v in data.qpos[3:7])
+    yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+    key = id(data)
+    # Start a new line on the first call, and whenever the clock goes
+    # backwards (the viewer's reset key restarts it).
+    if key not in _line or elapsed < _line[key][3]:
+        _line[key] = (float(data.qpos[0]), float(data.qpos[1]), yaw, elapsed)
+    x0, y0, yaw0, _t = _line[key]
+    _line[key] = (x0, y0, yaw0, elapsed)
+    # Distance off the starting line, measured square to it.
+    off = (-(data.qpos[0] - x0) * math.sin(yaw0)
+           + (data.qpos[1] - y0) * math.cos(yaw0))
+    aim = yaw0 - math.atan(LINE_GAIN * off)
+    err = math.atan2(math.sin(aim - yaw), math.cos(aim - yaw))
+    return max(-MAX_STEER, min(MAX_STEER, STEER_GAIN * err))
+
+
 def drive(data, actuators, elapsed, step_time):
     """Set all 24 servo targets for this instant."""
     growth = min(1.0, elapsed / EASE_IN) if EASE_IN > 0 else 1.0
     growth = growth * growth * (3.0 - 2.0 * growth)
     cycle = (elapsed / step_time) % 1.0
+    steer = steering(data, elapsed)
     for leg, side, offset, scale in LEGS:
+        # Left legs are side +1: a left turn needs the right side to push
+        # further and the left side less.
+        trim = 1.0 - side * steer
         sweep, lift = leg_targets((cycle + offset) % 1.0,
-                                  STEP_REACH * scale * growth)
+                                  STEP_REACH * scale * trim * growth)
         # Hip turns anticlockwise for positive, which is backwards for a
         # left leg and forwards for a right one.
-        data.ctrl[actuators[f"{leg}_hip"]] = -side * sweep
-        data.ctrl[actuators[f"{leg}_knee"]] = lift * growth
-        data.ctrl[actuators[f"{leg}_ankle"]] = -lift * ANKLE_FOLLOW * growth
+        # Servo targets go to MuJoCo in radians.
+        data.ctrl[actuators[f"{leg}_hip"]] = math.radians(-side * sweep)
+        data.ctrl[actuators[f"{leg}_knee"]] = math.radians(lift * growth)
+        data.ctrl[actuators[f"{leg}_ankle"]] = math.radians(
+            -lift * ANKLE_FOLLOW * growth)
 
 
 def stand(data):

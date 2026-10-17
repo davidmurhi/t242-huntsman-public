@@ -14,8 +14,8 @@ What it does
     3. Composes those placements, so every part of every leg is in one
        frame.
     4. Finds the three joint axes from the servo horn frames.
-    5. Converts to the simulator's frame (metres, x forward towards the
-       battery, y left, z up) with the origin at the centre of the eight
+    5. Converts to the simulator's frame (metres, x forward, battery at
+       the back, y left, z up) with the origin at the centre of the eight
        hip axes, level with the top of the body plate.
     6. Keeps only each part's convex-hull vertices, which is all MuJoCo
        needs for a collision mesh.
@@ -58,12 +58,36 @@ PIECES = {
         lambda p: (p[:, 2] >= 2.95) & (p[:, 2] <= 3.40),
         lambda p: p[:, 2] <= 0.251,
     ],
+    "acrylic leg": [                             # tapered bar, forked end
+        lambda p: p[:, 0] >= -13.95,             # main bar to the tip
+        lambda p: (p[:, 0] <= -12.70) & (p[:, 2] <= -6.00),   # lower prong
+        lambda p: (p[:, 0] <= -13.60) & (p[:, 2] >= -4.25),   # upper prong
+    ],
+    "9imod 55kg": [                              # case, mounting tabs
+        lambda p: (np.abs(p[:, 0]) <= 2.001) & (p[:, 1] <= 3.96),
+        lambda p: (p[:, 1] >= 2.72) & (p[:, 1] <= 3.06),
+    ],
+}
+
+# Details the solid model only implies. The servo's output spline is at
+# x = -1.05 on its top face; Ronan's render shows the round horn there.
+def _disc(cx, cz, y0, y1, r, k=20):
+    a = np.linspace(0, 2 * np.pi, k, endpoint=False)
+    ring = np.stack([cx + r * np.cos(a), np.zeros(k), cz + r * np.sin(a)], 1)
+    return np.vstack([ring + [0, y0, 0], ring + [0, y1, 0]])
+
+
+VISUALS = {
+    "9imod 55kg": [("horn", _disc(-1.05, 0.0, 4.05, 4.30, 1.05)),
+                   ("spline", _disc(-1.05, 0.0, 3.95, 4.60, 0.32))],
 }
 
 
-# Assembly frame (Inventor): x along the body, y up, z across. Simulator
-# frame: x forward, y left, z up.
-TO_SIM = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]], dtype=float)
+# Assembly frame (Inventor): x along the body (battery at +x), y up, z
+# across. Simulator frame: x forward, y left, z up. The front of the robot
+# is the end WITHOUT the battery (the battery rides at the back), so
+# forward is the assembly's -x.
+TO_SIM = np.array([[-1, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=float)
 
 
 def hull(points):
@@ -163,7 +187,7 @@ def main():
         return TO_SIM @ np.asarray(v)
 
     out = {"source": "V Source CAD, Huntsman.zip (15 Oct 2026)",
-           "units": "metres, x forward (battery end), y left, z up",
+           "units": "metres, x forward (battery at the back), y left, z up",
            "parts_missing_from_pack": ["case2", "rear rail v2",
                                        "Makitabattery"],
            "body": [], "legs": []}
@@ -178,6 +202,11 @@ def main():
             world = g @ M[:3, :3].T + M[:3, 3]
             lst.append({"name": f"{key}.{k}" if len(groups) > 1 else key,
                         "part": base, "mass": mass / len(groups),
+                        "vertices": np.round(hull(to_sim(world)), 5).tolist()})
+        for label, verts in VISUALS.get(base, []):
+            world = verts @ M[:3, :3].T + M[:3, 3]
+            lst.append({"name": f"{key}.{label}", "part": label, "mass": 0.0,
+                        "visual": True,
                         "vertices": np.round(hull(to_sim(world)), 5).tolist()})
 
     add(out["body"], "plate", "body", body_M)
