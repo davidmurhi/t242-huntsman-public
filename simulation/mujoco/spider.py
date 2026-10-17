@@ -63,7 +63,7 @@ TIBIA_ANGLE_DOWN = 72.0        # lower leg this far below level
 # Payload enclosure ('case2' in bot.iam). Its part file was not in the
 # pack, so it is a box sized from Ronan's top-view render, placed where
 # bot.iam puts it. Its mass is the 867 g 'Payload' line on the sheet.
-PAYLOAD_SIZE = (0.129, 0.093, 0.060)
+PAYLOAD_SIZE = (0.129, 0.093, 0.045)
 PAYLOAD_CENTRE_X = 0.040
 PAYLOAD_MASS = 0.867
 
@@ -98,9 +98,6 @@ COLOURS = {
 # of the parts it is bolted to.
 VISUAL_ONLY = {"Servo Mount - Horn Frame", "horn", "spline"}
 
-# The Makita battery sits in a light-grey slide mount ('Makitabattery' in
-# bot.iam, not in the pack). Drawn from the render, no collision, no mass.
-BATTERY_MOUNT_RISE = 0.012      # how far up the battery the mount comes
 
 # =====================================================================
 
@@ -159,6 +156,10 @@ def pose_leg(lg):
     tip = np.array(lg["tip"])
     links = {k: [(p["name"], p["part"], p["mass"], np.array(p["vertices"]))
                  for p in v] for k, v in lg["links"].items()}
+    # Skins (the textured look of each plate) ride with their link.
+    skins = {k: [(p["skin"]["key"], np.array(p["skin"]["vertices"]),
+                  p["skin"]["faces"], p["skin"]["texcoord"], p["name"])
+                 for p in v if "skin" in p] for k, v in lg["links"].items()}
 
     # Which way the leg points comes from the knee servo's shaft in the
     # CAD, which is square to the leg, rather than from where the foot
@@ -174,6 +175,10 @@ def pose_leg(lg):
     def turn(points, pivot, axis, deg):
         return (points - pivot) @ rot(axis, deg).T + pivot
 
+    def turn_skins(link, pivot, axis, deg):
+        skins[link] = [(k, turn(v, pivot, axis, deg), f, t, nm)
+                       for k, v, f, t, nm in skins[link]]
+
     # Hip: splay the whole leg to its standing direction. Positive yaw
     # swings the foot forward on both sides.
     side = 1.0 if out[1] > 0 else -1.0
@@ -181,6 +186,7 @@ def pose_leg(lg):
     for link in ("coxa", "femur", "tibia"):
         links[link] = [(a, b, m, turn(v, hip, [0, 0, 1], yaw))
                        for a, b, m, v in links[link]]
+        turn_skins(link, hip, [0, 0, 1], yaw)
     knee = turn(knee, hip, [0, 0, 1], yaw)
     ankle = turn(ankle, hip, [0, 0, 1], yaw)
     tip = turn(tip, hip, [0, 0, 1], yaw)
@@ -191,6 +197,7 @@ def pose_leg(lg):
     for link in ("femur", "tibia"):
         links[link] = [(a, b, m, turn(v, knee, lift, FEMUR_ANGLE_UP))
                        for a, b, m, v in links[link]]
+        turn_skins(link, knee, lift, FEMUR_ANGLE_UP)
     ankle = turn(ankle, knee, lift, FEMUR_ANGLE_UP)
     tip = turn(tip, knee, lift, FEMUR_ANGLE_UP)
 
@@ -200,12 +207,13 @@ def pose_leg(lg):
     drop = -(TIBIA_ANGLE_DOWN + now)
     links["tibia"] = [(a, b, m, turn(v, ankle, lift, drop))
                       for a, b, m, v in links["tibia"]]
+    turn_skins("tibia", ankle, lift, drop)
     tip = turn(tip, ankle, lift, drop)
 
     return {"pivot": {"hip": hip, "knee": knee, "ankle": ankle},
             "axis": {"hip": np.array([0.0, 0.0, 1.0]), "knee": lift,
                      "ankle": lift},
-            "links": links, "tip": tip, "out": out,
+            "links": links, "skins": skins, "tip": tip, "out": out,
             "stand": {"hip": yaw, "knee": FEMUR_ANGLE_UP, "ankle": drop}}
 
 
@@ -299,12 +307,33 @@ def mesh_asset(name, verts, origin):
             + " ".join(n(x) for x in local.ravel()) + '"/>')
 
 
-def part_geom(gname, mesh, part, mass, collide=True):
+def part_geom(gname, mesh, part, mass, collide=True, hidden=False):
     attrs = (f'name="{gname}" type="mesh" mesh="{mesh}" '
              f'rgba="{COLOURS.get(part, "0.5 0.5 0.5 1")}"')
     attrs += f' mass="{n(mass)}"' if mass > 0 else ' density="0"'
     attrs += ' class="part"' if collide else ' contype="0" conaffinity="0"'
+    # A part drawn by its skin keeps its collision shape in group 3, which
+    # the viewer hides by default (tick 'Geom groups 3' to see it).
+    attrs += ' group="3"' if hidden else ""
     return f"<geom {attrs}/>"
+
+
+def skin_asset(name, verts, faces, tex, origin):
+    local = np.asarray(verts) - origin
+    return (f'    <mesh name="{name}" inertia="shell" vertex="'
+            + " ".join(n(x) for x in local.ravel()) + '" face="'
+            + " ".join(str(i) for f in faces for i in f) + '" texcoord="'
+            + " ".join(n(x) for x in np.asarray(tex).ravel()) + '"/>')
+
+
+def skin_geom(gname, mesh, key):
+    return (f'<geom name="{gname}" type="mesh" mesh="{mesh}" '
+            f'material="{skin_material(key)}" density="0" contype="0" '
+            f'conaffinity="0" group="1"/>')
+
+
+def skin_material(key):
+    return "skin_" + key.replace(" ", "_").replace(".", "_")
 
 
 def build_model():
@@ -312,36 +341,40 @@ def build_model():
     lift = -ground + FOOT_CLEARANCE
     assets, body = [], []
 
+    import looks
+    tex_files = looks.write_all(cad["skins"], os.path.join(HERE, "textures"))
+    for key, fn in tex_files.items():
+        mat = skin_material(key)
+        assets.append(f'    <texture name="{mat}" type="2d" '
+                      f'file="textures/{fn}"/>')
+        assets.append(f'    <material name="{mat}" texture="{mat}" '
+                      f'specular="0.25" shininess="0.3"/>')
+
     for p in cad["body"]:
         m = f"m_{p['name']}"
         assets.append(mesh_asset(m, p["vertices"], np.zeros(3)))
         body.append("      " + part_geom(p["name"], m, p["part"], p["mass"],
-                                          p["part"] not in VISUAL_ONLY))
-    # Makita battery livery from the render: light-grey slide mount at the
-    # base, yellow band above it, charcoal housing on top.
-    bat = np.array(next(p["vertices"] for p in cad["body"]
-                        if p["part"] == "Battery LxT 18V v7"))
-    lo, hi = bat.min(0), bat.max(0)
-    mid, half = (lo + hi) / 2, (hi - lo) / 2
-    plate_top = 0.0
-    mount_top = lo[2] + BATTERY_MOUNT_RISE
-    body.append(f'      <geom name="battery_mount" type="box" size="'
-                f'{n(half[0] + 0.002)} {n(half[1] + 0.002)} '
-                f'{n((mount_top - plate_top) / 2)}" pos="{n(mid[0])} '
-                f'{n(mid[1])} {n((mount_top + plate_top) / 2)}" '
-                f'rgba="0.72 0.73 0.74 1" density="0" contype="0" '
-                f'conaffinity="0"/>')
-    band_lo, band_hi = mount_top, mount_top + 0.009
-    body.append(f'      <geom name="battery_band" type="box" size="'
-                f'{n(half[0] + 0.0015)} {n(half[1] + 0.0015)} '
-                f'{n((band_hi - band_lo) / 2)}" pos="{n(mid[0])} {n(mid[1])} '
-                f'{n((band_hi + band_lo) / 2)}" rgba="0.96 0.70 0.06 1" '
-                f'density="0" contype="0" conaffinity="0"/>')
+                                          p["part"] not in VISUAL_ONLY,
+                                          hidden="skin" in p or p["part"]
+                                          == "Battery LxT 18V v7"))
+        if "skin" in p:
+            sk = p["skin"]
+            assets.append(skin_asset(f"s_{p['name']}", sk["vertices"],
+                                     sk["faces"], sk["texcoord"], np.zeros(3)))
+            body.append("      " + skin_geom(f"skin_{p['name']}",
+                                             f"s_{p['name']}", sk["key"]))
+    # Battery, payload case and the sled underneath: see details.py.
+    import details
+    tex_dir = os.path.join(HERE, "textures")
+    for part in details.build(cad, tex_dir), details.case_and_sled(
+            PAYLOAD_SIZE, PAYLOAD_CENTRE_X, tex_dir):
+        assets.extend(part[0])
+        body.extend("      " + g for g in part[1])
     pl, pw, ph = PAYLOAD_SIZE
     body.append(f'      <geom name="payload" type="box" size="{n(pl / 2)} '
                 f'{n(pw / 2)} {n(ph / 2)}" pos="{n(PAYLOAD_CENTRE_X)} 0 '
                 f'{n(ph / 2)}" mass="{n(PAYLOAD_MASS)}" '
-                f'rgba="0.07 0.07 0.08 1" class="part"/>')
+                f'rgba="0.07 0.07 0.08 1" class="part" group="3"/>')
     body.append('      <site name="body_centre" pos="0 0 0" size="0.004" '
                 'rgba="0 0 0 0"/>')
 
@@ -366,17 +399,26 @@ def build_model():
                          f'range="{n(ranges[joint][0])} {n(ranges[joint][1])}"'
                          f' damping="{n(damping[joint])}" '
                          f'armature="{armature[joint]}"/>')
+            skinned = {nm for *_x, nm in L["skins"][link]}
             for k, (pname, part, mass, verts) in enumerate(L["links"][link]):
                 m = f"m_{leg}_{link}_{k}"
                 assets.append(mesh_asset(m, verts, origin))
                 collide = part not in VISUAL_ONLY
                 lines.append(f"{indent}  " + part_geom(
-                    f"{leg}_{link}_{k}", m, part, mass, collide))
+                    f"{leg}_{link}_{k}", m, part, mass, collide,
+                    hidden=pname in skinned))
+            for k, (key, verts, faces, tex, _nm) in enumerate(
+                    L["skins"][link]):
+                m = f"s_{leg}_{link}_{k}"
+                assets.append(skin_asset(m, verts, faces, tex, origin))
+                lines.append(f"{indent}  " + skin_geom(
+                    f"{leg}_{link}_skin{k}", m, key))
             if link == "tibia":
                 lines.append(f'{indent}  <geom name="{leg}_tip" '
                              f'type="sphere" size="{n(FOOT_RADIUS)}" '
                              f'pos="{vec(L["tip"] - origin)}" density="0" '
-                             f'rgba="0.02 0.02 0.02 1" class="tip"/>')
+                             f'rgba="0.02 0.02 0.02 1" class="tip" '
+                             f'group="3"/>')
             indent += "  "
         for _ in chain:
             indent = indent[:-2]
@@ -395,7 +437,9 @@ def build_model():
         '  <option timestep="0.002" solver="Newton" integrator="implicitfast"',
         '          iterations="100" ls_iterations="50"/>',
         '  <visual><global offwidth="1600" offheight="1000"/>',
-        '    <quality shadowsize="4096"/></visual>',
+        '    <headlight ambient="0.20 0.20 0.20" diffuse="0.30 0.30 0.30"',
+        '               specular="0.05 0.05 0.05"/>',
+        '    <quality shadowsize="8192"/></visual>',
         "  <default>",
         '    <default class="part">',
         '      <geom condim="3" solimp="0.90 0.96 0.001" solref="0.01 1"/>',
@@ -418,10 +462,14 @@ def build_model():
         "  </asset>",
         "  <worldbody>",
         '    <light name="key" pos="1 -1 3" dir="-0.3 0.3 -1"',
-        '           directional="true" diffuse="0.75 0.75 0.75"/>',
+        '           directional="true" diffuse="0.58 0.58 0.58"',
+        '           specular="0.15 0.15 0.15"/>',
         '    <light name="fill" pos="-2 2 3" dir="0.4 -0.4 -1"',
-        '           directional="true" diffuse="0.3 0.3 0.3"',
-        '           castshadow="false"/>',
+        '           directional="true" diffuse="0.16 0.16 0.16"',
+        '           specular="0 0 0" castshadow="false"/>',
+        '    <light name="under" pos="0 0 -2" dir="0.1 0.2 1"',
+        '           directional="true" diffuse="0.18 0.18 0.18"',
+        '           specular="0 0 0" castshadow="false"/>',
         '    <geom name="ground" type="plane" size="20 20 0.1"',
         '          material="ground" friction="1.5 0.05 0.001" condim="4"/>',
         f'    <body name="body" pos="0 0 {n(lift)}">',

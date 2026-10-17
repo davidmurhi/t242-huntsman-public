@@ -183,3 +183,34 @@ def occurrence_names(path):
         if len(cand) > len(names):
             names = cand
     return names
+
+def part_circles(path) -> np.ndarray:
+    """Every circular edge of a part (hole rims, bosses, horn discs).
+
+    ACIS 'ellipse-curve' records hold the centre (position tag 0x13), the
+    normal and the major axis (vector tag 0x14) and the axis ratio. Rows
+    are centre xyz, normal xyz, radius, all cm in part coordinates; only
+    true circles (ratio 1) are returned.
+    """
+    out = []
+    for _name, blob in segments(path):
+        if b"ASM" not in blob or b"ellipse" not in blob:
+            continue
+        for m in re.finditer(rb"ellipse", blob):
+            w = blob[m.end():m.end() + 160]
+            k = w.find(b"\x13")
+            if k == -1 or k + 1 + 24 + 2 * 25 + 9 > len(w):
+                continue
+            c = struct.unpack_from("<3d", w, k + 1)
+            if w[k + 25] != 0x14 or w[k + 50] != 0x14:
+                continue
+            nrm = struct.unpack_from("<3d", w, k + 26)
+            major = struct.unpack_from("<3d", w, k + 51)
+            ratio = struct.unpack_from("<d", w, k + 76)[0] \
+                if w[k + 75] == 0x06 else 1.0
+            r = float(np.linalg.norm(major))
+            if abs(ratio - 1.0) < 1e-6 and 0 < r < 100:
+                out.append(list(c) + list(nrm) + [r])
+    if not out:
+        return np.zeros((0, 7))
+    return np.unique(np.round(np.array(out), 5), axis=0)

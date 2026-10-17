@@ -58,10 +58,16 @@ PIECES = {
         lambda p: (p[:, 2] >= 2.95) & (p[:, 2] <= 3.40),
         lambda p: p[:, 2] <= 0.251,
     ],
-    "acrylic leg": [                             # tapered bar, forked end
-        lambda p: p[:, 0] >= -13.95,             # main bar to the tip
-        lambda p: (p[:, 0] <= -12.70) & (p[:, 2] <= -6.00),   # lower prong
-        lambda p: (p[:, 0] <= -13.60) & (p[:, 2] >= -4.25),   # upper prong
+    # The acrylic lower leg is a truss: a post at the servo end, a strip
+    # under the servo notch, a column, then a top and a bottom strip either
+    # side of a long triangular window running to the foot.
+    "acrylic leg": [
+        lambda p: p[:, 0] <= -17.99,                               # end post
+        lambda p: (p[:, 0] <= -12.70) & (p[:, 2] <= -6.00),        # under notch
+        lambda p: (p[:, 0] >= -13.95) & (p[:, 0] <= -12.70),       # column
+        lambda p: (p[:, 0] >= -13.95) & (p[:, 2] >= -4.81),        # top strip
+        lambda p: (p[:, 0] >= -13.30) & ((p[:, 2] <= -5.18)
+                                         | (p[:, 0] >= -2.30)),    # bottom strip
     ],
     "body": [                                    # main deck, battery tab
         lambda p: p[:, 0] <= 12.40,
@@ -88,16 +94,172 @@ PIECE_EXTRA = {
                            for z in (-3.35, 3.35)]),
 }
 
+# Output shaft centre from the servo's own circles: x = -1.02, z = 0.
 VISUALS = {
-    "9imod 55kg": [("horn", _disc(-1.05, 0.0, 4.05, 4.30, 1.05)),
-                   ("spline", _disc(-1.05, 0.0, 3.95, 4.60, 0.32))],
+    "9imod 55kg": [("horn", _disc(-1.02, 0.0, 4.07, 4.30, 1.05)),
+                   ("spline", _disc(-1.02, 0.0, 3.95, 4.60, 0.32))],
 }
+
+# Skins: what the robot looks like, as opposed to what it collides with.
+# Each listed piece is a flat plate (or the servo case seen side-on). Its
+# outline, thickness and every hole are read from the part file, and it
+# is drawn as that outline extruded through its thickness, with a texture
+# on both faces carrying the holes, the edge lines and, on the servo, the
+# '9imod 55KG DSC55MG' lettering. Axes: (normal, across, up), right-handed.
+SKINS = {
+    ("9imod 55kg", 0): (2, 0, 1),
+    ("9imod 55kg", 1): (1, 2, 0),
+    ("Multi Purpose Bracket", 0): (1, 2, 0),
+    ("Multi Purpose Bracket", 1): (2, 0, 1),
+    ("Multi Purpose Bracket", 2): (2, 0, 1),
+    ("Servo Bracket - U Shaped bis", 0): (1, 2, 0),
+    ("Servo Bracket - U Shaped bis", 1): (2, 0, 1),
+    ("Servo Bracket - U Shaped bis", 2): (2, 0, 1),
+    ("body", 0): (1, 2, 0),
+}
+# The body plate is drawn as one outline: the main deck and the battery
+# tab together, with the two concave fillets where they meet (the large
+# circles at x = 12.5 cm in body.ipt) cut out of it.
+SKIN_UNION = {("body", 0): (0, 1)}
+
+
+def _ear_clip(poly):
+    """Triangles (index triples) of a simple anticlockwise polygon."""
+    idx = list(range(len(poly)))
+    tris = []
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    guard = 0
+    while len(idx) > 3 and guard < 20000:
+        guard += 1
+        for k in range(len(idx)):
+            i0, i1, i2 = idx[k - 1], idx[k], idx[(k + 1) % len(idx)]
+            a, b, c = poly[i0], poly[i1], poly[i2]
+            if cross(a, b, c) <= 1e-12:
+                continue
+            inside = False
+            for j in idx:
+                if j in (i0, i1, i2):
+                    continue
+                p = poly[j]
+                if (cross(a, b, p) >= 0 and cross(b, c, p) >= 0
+                        and cross(c, a, p) >= 0):
+                    inside = True
+                    break
+            if not inside:
+                tris.append((i0, i1, i2))
+                idx.pop(k)
+                break
+        else:
+            break
+    if len(idx) == 3:
+        tris.append(tuple(idx))
+    return tris
+
+
+def concave_outline(groups_uv, notches, px=40):
+    """Outline of the union of convex pieces minus notch discs, traced on
+    a fine grid (0.25 mm) and simplified to 0.1 mm."""
+    import cv2
+    from scipy.spatial import ConvexHull
+    allp = np.vstack(groups_uv)
+    lo = allp.min(0) - 0.5
+    size = np.ceil((allp.max(0) + 0.5 - lo) * px).astype(int)
+    mask = np.zeros((size[1], size[0]), np.uint8)
+    for g in groups_uv:
+        h = g[ConvexHull(g).vertices]
+        cv2.fillPoly(mask, [np.round((h - lo) * px).astype(np.int32)], 255)
+    for cu, cv_, r in notches:
+        cv2.circle(mask, (int(round((cu - lo[0]) * px)),
+                          int(round((cv_ - lo[1]) * px))),
+                   int(round(r * px)), 0, -1)
+    cs, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    c = max(cs, key=cv2.contourArea)
+    c = cv2.approxPolyDP(c, 0.01 * px, True)[:, 0, :]
+    poly = c / px + lo
+    area = 0.5 * np.sum(poly[:, 0] * np.roll(poly[:, 1], -1)
+                        - np.roll(poly[:, 0], -1) * poly[:, 1])
+    if area < 0:
+        poly = poly[::-1]
+    return poly
+
+# The servo label, read from the raised lettering on the case's +z face
+# (bounding boxes of the letter outlines, cm, part coordinates).
+SERVO_TEXT = [("9imod", -1.547, 0.124, 3.159, 3.627),
+              ("55KG", -1.679, 0.059, 1.674, 2.201),
+              ("DSC55MG", -1.653, 1.673, 0.784, 1.311)]
+
+
+def skin_of(g, circles, axes):
+    """Outline, thickness and holes of one plate, in its own 2D frame.
+
+    Circles lying in the plate's plane are either holes (wholly inside
+    the plate) or the rounded ends of its outline (which run past the
+    corner vertices); the second kind are sampled into the outline so
+    rounded ends stay round.
+    """
+    from scipy.spatial import ConvexHull
+    a, u, v = axes
+    uv = g[:, [u, v]]
+    lo, hi = uv.min(0), uv.max(0)
+    w0, w1 = float(g[:, a].min()), float(g[:, a].max())
+    flat = np.zeros((0, 7))
+    if len(circles):
+        on = (np.abs(circles[:, 3 + a]) > 0.99) \
+            & (circles[:, a] >= w0 - 0.01) & (circles[:, a] <= w1 + 0.01)
+        flat = circles[on]
+
+    def inside(ring, p, margin):
+        h = ConvexHull(ring)
+        return bool(np.all(h.equations[:, :2] @ p + h.equations[:, 2]
+                           <= -margin))
+
+    base = uv[ConvexHull(uv).vertices]
+    holes, arcs = [], []
+    for c in flat:
+        cu, cv, r = c[u], c[v], c[6]
+        if inside(base, np.array([cu, cv]), r * 0.98):
+            holes.append((round(cu, 4), round(cv, 4), round(r, 4)))
+        elif lo[0] - r < cu < hi[0] + r and lo[1] - r < cv < hi[1] + r:
+            t = np.linspace(0, 2 * np.pi, 72, endpoint=False)
+            pts = np.stack([cu + r * np.cos(t), cv + r * np.sin(t)], 1)
+            keep = np.all((pts >= lo - 1e-3) & (pts <= hi + 1e-3), axis=1)
+            arcs.append(pts[keep])
+    if arcs:
+        uv = np.vstack([uv] + arcs)
+    ring = uv[ConvexHull(uv).vertices]          # anticlockwise
+    holes = sorted(set(holes))
+    return {"axes": list(axes), "w": [w0, w1],
+            "outline": np.round(ring, 4).tolist(), "holes": holes}
+
+
+def skin_of_union(groups, circles, axes):
+    """skin_of for a plate drawn from several pieces, with notches."""
+    a, u, v = axes
+    sk = skin_of(np.vstack(groups), circles, axes)
+    uvs = [g[:, [u, v]] for g in groups]
+    allp = np.vstack(uvs)
+    lo, hi = allp.min(0), allp.max(0)
+    notches = []
+    for c in circles:
+        if abs(c[3 + a]) > 0.99 and c[6] > 1.0:
+            if lo[0] < c[u] < hi[0] and lo[1] < c[v] < hi[1]:
+                notches.append((c[u], c[v], c[6]))
+    poly = concave_outline(uvs, notches)
+    sk["outline"] = np.round(poly, 4).tolist()
+    sk["tris"] = [list(map(int, t)) for t in _ear_clip(poly.tolist())]
+    sk["holes"] = [h for h in sk["holes"] if h[2] <= 1.0]
+    return sk
 
 
 # Assembly frame (Inventor): x along the body (battery at +x), y up, z
 # across. Simulator frame: x forward, y left, z up. The front of the robot
 # is the end WITHOUT the battery (the battery rides at the back), so
 # forward is the assembly's -x.
+SKIN_PANEL = 0.48      # each face's share of the texture atlas width
+
 TO_SIM = np.array([[-1, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=float)
 
 
@@ -116,10 +278,11 @@ def main():
     folder = sys.argv[1]
     f = lambda name: os.path.join(folder, name)          # noqa: E731
 
-    parts = {}
+    parts, circles = {}, {}
     for fn in sorted(os.listdir(folder)):
         if fn.endswith(".ipt"):
             parts[fn[:-4]] = inventor.part_vertices(f(fn))
+            circles[fn[:-4]] = inventor.part_circles(f(fn))
 
     def placed(asm):
         names = inventor.occurrence_names(f(asm))
@@ -153,8 +316,10 @@ def main():
     #   hip servo body is fixed to the chassis; its horn frame turns with
     #   the leg. The knee servo ('mounted servo:1') rides the hip horn;
     #   its horn frame drives the U-bracket femur. The ankle servo
-    #   ('mounted servo:2') sits at the femur's end; its horn frame drives
-    #   the acrylic lower leg.
+    #   ('mounted servo:2') is bolted to the acrylic lower leg and turns
+    #   with it; its horn frame is fixed to the end of the femur. That is
+    #   how the built robot is assembled: the ankle servo hangs down with
+    #   the lower leg.
     link_of = {
         "9imod 55kg#1": "body",
         "Servo Mount - Horn Frame#1": "coxa",
@@ -163,9 +328,9 @@ def main():
         "mounted_servo:1/Servo Mount - Horn Frame": "femur",
         "Servo Bracket - U Shaped bis#1": "femur",
         "Servo Bracket - U Shaped bis#2": "femur",
-        "mounted_servo:2/9imod 55kg": "femur",
-        "mounted_servo:2/Multi Purpose Bracket": "femur",
-        "mounted_servo:2/Servo Mount - Horn Frame": "tibia",
+        "mounted_servo:2/9imod 55kg": "tibia",
+        "mounted_servo:2/Multi Purpose Bracket": "tibia",
+        "mounted_servo:2/Servo Mount - Horn Frame": "femur",
         "acrylic leg#1": "tibia",
     }
     missing = [k for k, _ in leg_parts if k not in link_of]
@@ -201,7 +366,57 @@ def main():
            "units": "metres, x forward (battery at the back), y left, z up",
            "parts_missing_from_pack": ["case2", "rear rail v2",
                                        "Makitabattery"],
-           "body": [], "legs": []}
+           "body": [], "legs": [], "skins": {}}
+
+    def skin_mesh(sk, M):
+        """Extruded outline of a skin, placed by M, in simulator metres.
+
+        Vertices: top ring, bottom ring, then the side walls (their own
+        copies, so the walls can take the plain edge colour). Texture
+        coordinates follow the atlas spiders.py draws: front face panel,
+        back face panel (mirrored, so it reads the right way round from
+        behind), then a narrow plain strip for the walls.
+        """
+        a, u, v = sk["axes"]
+        ring = np.array(sk["outline"])
+        n = len(ring)
+        lo, hi = ring.min(0), ring.max(0)
+        U = (ring[:, 0] - lo[0]) / (hi[0] - lo[0])
+        V = (ring[:, 1] - lo[1]) / (hi[1] - lo[1])
+        pf = SKIN_PANEL
+        def pts(w):
+            p = np.zeros((n, 3))
+            p[:, u], p[:, v], p[:, a] = ring[:, 0], ring[:, 1], w
+            return p
+        top, bot = pts(sk["w"][1] + 0.002), pts(sk["w"][0] - 0.002)
+        local = np.vstack([top, bot, top, bot])
+        tex = ([(U[i] * pf, 1 - V[i]) for i in range(n)]
+               + [((2 - U[i]) * pf, 1 - V[i]) for i in range(n)]
+               + [(2 * pf + 0.5 * (1 - 2 * pf), 0.5)] * (2 * n))
+        faces = []
+        tris = sk.get("tris") or [(0, i, i + 1) for i in range(1, n - 1)]
+        for i0, i1, i2 in tris:
+            faces.append((i0, i1, i2))                   # front, +normal
+            faces.append((n + i0, n + i2, n + i1))       # back
+        for i in range(n):
+            j = (i + 1) % n
+            t0, t1, b0, b1 = 2 * n + i, 2 * n + j, 3 * n + i, 3 * n + j
+            faces += [(t0, b0, b1), (t0, b1, t1)]
+        world = local @ M[:3, :3].T + M[:3, 3]
+        verts = to_sim(world)
+        # Make every wall face point away from the plate's middle.
+        mid = verts.mean(0)
+        fixed = []
+        for f3 in faces:
+            p0, p1, p2 = verts[list(f3)]
+            nrm = np.cross(p1 - p0, p2 - p0)
+            cen = (p0 + p1 + p2) / 3
+            if f3[0] >= 2 * n and nrm @ (cen - mid) < 0:
+                f3 = (f3[0], f3[2], f3[1])
+            fixed.append(f3)
+        return {"vertices": np.round(verts, 6).tolist(),
+                "faces": [list(map(int, f3)) for f3 in fixed],
+                "texcoord": np.round(np.array(tex), 5).tolist()}
 
     def add(lst, key, base, M):
         local = parts[base]
@@ -212,11 +427,34 @@ def main():
                   for k, g in enumerate(groups)]
         groups = [g for g in groups if len(g) >= 4]
         mass = MASS_G.get(base, 0) / 1000.0
+        # The part's own frame in the simulator, so details (labels,
+        # holes) can be laid on its faces: origin in metres, axes as rows.
+        frame = {"pos": np.round(to_sim(M[:3, 3][None, :])[0], 6).tolist(),
+                 "rot": np.round(TO_SIM @ M[:3, :3], 6).tolist()}
         for k, g in enumerate(groups):
             world = g @ M[:3, :3].T + M[:3, 3]
+            lo, hi = g.min(0) / 100.0, g.max(0) / 100.0
             lst.append({"name": f"{key}.{k}" if len(groups) > 1 else key,
-                        "part": base, "mass": mass / len(groups),
+                        "part": base, "piece": k, "mass": mass / len(groups),
+                        "frame": frame,
+                        "local_box": [np.round(lo, 6).tolist(),
+                                      np.round(hi, 6).tolist()],
                         "vertices": np.round(hull(to_sim(world)), 5).tolist()})
+            if (base, k) in SKINS:
+                skey = f"{base}.{k}"
+                if skey not in out["skins"]:
+                    cs = circles.get(base, np.zeros((0, 7)))
+                    if (base, k) in SKIN_UNION:
+                        sk = skin_of_union([groups[j] for j in
+                                            SKIN_UNION[(base, k)]], cs,
+                                           SKINS[(base, k)])
+                    else:
+                        sk = skin_of(g, cs, SKINS[(base, k)])
+                    if base == "9imod 55kg" and k == 0:
+                        sk["text"] = SERVO_TEXT
+                    out["skins"][skey] = sk
+                lst[-1]["skin"] = dict(key=skey,
+                                       **skin_mesh(out["skins"][skey], M))
         for label, verts in VISUALS.get(base, []):
             world = verts @ M[:3, :3].T + M[:3, 3]
             lst.append({"name": f"{key}.{label}", "part": label, "mass": 0.0,
@@ -232,7 +470,8 @@ def main():
 
     # Unsupplied parts: keep their placements so they can be added later.
     out["placements_without_geometry"] = {
-        k: to_sim(M[:3, 3][None, :])[0].round(4).tolist()
+        k: {"pos": to_sim(M[:3, 3][None, :])[0].round(4).tolist(),
+            "rot": np.round(TO_SIM @ M[:3, :3], 4).tolist()}
         for k, M in botd.items()
         if k.split("#")[0] in ("case2", "rear rail v2", "Makitabattery")}
 
