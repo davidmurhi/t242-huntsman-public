@@ -66,8 +66,8 @@ _RIPPLE_BACK = {f"{n[0]}{5 - int(n[1])}": t for n, t in _RIPPLE.items()}
 _TRIPOD = {"l1": 0.0, "r2": 0.0, "l3": 0.0, "r4": 0.0,
            "r1": 0.5, "l2": 0.5, "r3": 0.5, "l4": 0.5}
 GAITS = {
-    "walk":   dict(cycle=0.60, swing=0.22, height=0.028, drop=0.000,
-                   speed=0.20, turn=45.0, stride=0.090,
+    "walk":   dict(cycle=0.50, swing=0.22, height=0.028, drop=0.000,
+                   speed=0.22, turn=60.0, stride=0.090,
                    lift=_RIPPLE, back=_RIPPLE_BACK),
     "trot":   dict(cycle=0.40, swing=0.45, height=0.028, drop=0.000,
                    speed=0.26, turn=60.0, stride=0.058,
@@ -80,8 +80,8 @@ GAITS = {
                    lift=_RIPPLE, back=_RIPPLE_BACK),
 }
 MAX_STRIDE = 0.090        # m, longest step any foot is asked to make
-ACCEL = 0.25              # m/s^2, how fast commanded speed may change
-TURN_ACCEL = 60.0         # deg/s^2
+ACCEL = 1.0               # m/s^2, how fast commanded speed may change
+TURN_ACCEL = 300.0        # deg/s^2
 DROP_RATE = 0.03          # m/s, body raise / lower speed between gaits
 
 # Heading hold: while no turn is commanded, steer to keep the heading the

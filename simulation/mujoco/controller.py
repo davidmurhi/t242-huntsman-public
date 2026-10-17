@@ -6,9 +6,11 @@ Drive the Huntsman simulation live: from the keyboard, from the drive
 pad page this serves, or from the team's operator dashboard. Telemetry
 streams back out on the same connection.
 
-    macOS            mjpython controller.py
-    Windows / Linux  python controller.py
-    python3 controller.py --headless      no 3D window (server only)
+    python controller.py                  3D window + drive pad (every OS)
+    python controller.py --headless       no 3D window (server only)
+
+    (Plain python, not mjpython: the window is our own, so it can read
+    exactly which keys are held down.)
 
 Then open http://localhost:8765 for the drive pad, or point the
 dashboard at ws://localhost:8765/ws (telemetry.svelte.js: connect()).
@@ -31,17 +33,16 @@ PROTOCOL (JSON text messages)
     rollDeg / pitchDeg / yawDeg match the names Tom's dashboard store
     already uses, and the server Prab started (port 8765).
 
-DRIVING, like any game controller (drive pad page, a gamepad plugged in
-to the computer, or the arrow keys in the 3D window)
-    hold forward / back          walks forward / back; let go and it stops
-    hold left / right            turns on the spot
-    forward + left / right       walks forward turning that way (same backwards)
-    The drive pad page reads key presses and releases exactly, so it is
-    the best way to drive. The 3D window only hears a key while it auto-
-    repeats, so there a held key keeps going and stops ~0.4 s after you
-    let go.
-    3D window extras: PAGE UP / DOWN sideways, HOME hold, END e-stop,
-    F9 F10 F11 F12 gait: walk, trot, rubble, crouch
+DRIVING, like any game controller
+    hold UP / W             walk forward; let go and it stops
+    hold DOWN / S           walk backwards; let go and it stops
+    hold LEFT/RIGHT, A/D    turn on the spot; let go and it stops
+    UP + LEFT / RIGHT       walk forward curving that way (same backwards)
+    Q / E                   step sideways
+    SPACE hold   X e-stop   1 2 3 4 gait (walk, trot, rubble, crouch)
+    R reset      mouse: left-drag rotate, right-drag pan, scroll zoom
+    The window reads the keys' real up/down state every frame. The drive
+    pad page and a gamepad plugged into the computer drive the same way.
 """
 
 from __future__ import annotations
@@ -326,12 +327,131 @@ def heading_and_position(robot):
     return yaw, (x, y)
 
 
-# Arrow keys in the 3D window: direction -> (vx, vy, wz) as shares of the
-# gait's top speed and turn rate.
-KEYS = {265: (1, 0, 0), 264: (-1, 0, 0), 263: (0, 0, 1), 262: (0, 0, -1),
-        266: (0, 1, 0), 267: (0, -1, 0)}
-KEY_HOLD_S = 0.4      # a key counts as held this long after its last repeat
-GAIT_KEYS = {298: "walk", 299: "trot", 300: "rubble", 301: "crouch"}
+# =====================================================================
+# THE 3D WINDOW - our own, so held keys are read exactly
+# =====================================================================
+
+def window(robot, gait, commands, loop_once, dt):
+    import glfw
+    mj = robot.mj
+    if not glfw.init():
+        sys.exit("could not open a window (glfw)")
+    glfw.window_hint(glfw.SAMPLES, 4)
+    win = glfw.create_window(1400, 900, "Huntsman - drive with the arrow keys",
+                             None, None)
+    if not win:
+        glfw.terminate()
+        sys.exit("could not open a window (glfw)")
+    glfw.make_context_current(win)
+    glfw.swap_interval(1)
+
+    model, data = robot.model, robot.data
+    cam, opt = mj.MjvCamera(), mj.MjvOption()
+    mj.mjv_defaultCamera(cam)
+    mj.mjv_defaultOption(opt)
+    cam.distance, cam.elevation, cam.azimuth = 1.1, -22.0, 135.0
+    scene = mj.MjvScene(model, maxgeom=6000)
+    con = mj.MjrContext(model, mj.mjtFontScale.mjFONTSCALE_150)
+
+    mouse = {"left": False, "right": False, "x": 0.0, "y": 0.0}
+    gaits = {glfw.KEY_1: "walk", glfw.KEY_2: "trot", glfw.KEY_3: "rubble",
+             glfw.KEY_4: "crouch"}
+
+    def on_key(_w, key, _sc, action, _mods):
+        if action != glfw.PRESS:
+            return
+        if key == glfw.KEY_ESCAPE:
+            glfw.set_window_should_close(win, True)
+        elif key in gaits:
+            commands.apply({"type": "gait", "id": gaits[key]}, False)
+        elif key == glfw.KEY_X:
+            commands.apply({"type": "estop", "engaged": not gait.estop},
+                           False)
+        elif key == glfw.KEY_SPACE:
+            commands.apply({"type": "hold"}, False)
+        elif key == glfw.KEY_R:
+            robot.reset()
+
+    def on_button(_w, button, action, _mods):
+        mouse["left"] = glfw.get_mouse_button(win, glfw.MOUSE_BUTTON_LEFT) \
+            == glfw.PRESS
+        mouse["right"] = glfw.get_mouse_button(win, glfw.MOUSE_BUTTON_RIGHT) \
+            == glfw.PRESS
+        mouse["x"], mouse["y"] = glfw.get_cursor_pos(win)
+
+    def on_move(_w, x, y):
+        dx, dy = x - mouse["x"], y - mouse["y"]
+        mouse["x"], mouse["y"] = x, y
+        if not (mouse["left"] or mouse["right"]):
+            return
+        _w2, h = glfw.get_window_size(win)
+        action = (mj.mjtMouse.mjMOUSE_ROTATE_V if mouse["left"]
+                  else mj.mjtMouse.mjMOUSE_MOVE_V)
+        mj.mjv_moveCamera(model, action, dx / h, dy / h, scene, cam)
+
+    def on_scroll(_w, _x, y):
+        mj.mjv_moveCamera(model, mj.mjtMouse.mjMOUSE_ZOOM, 0.0, -0.05 * y,
+                          scene, cam)
+
+    glfw.set_key_callback(win, on_key)
+    glfw.set_mouse_button_callback(win, on_button)
+    glfw.set_cursor_pos_callback(win, on_move)
+    glfw.set_scroll_callback(win, on_scroll)
+
+    def down(*keys):
+        return any(glfw.get_key(win, k) == glfw.PRESS for k in keys)
+
+    driving = False
+    last_tel, ticks, t_rate = 0.0, 0, time.monotonic()
+    sim_clock, wall0 = 0.0, time.monotonic()
+    print("  hold the arrow keys (or W A S D) to drive; Q/E sideways, "
+          "SPACE hold, X e-stop, 1-4 gait, R reset, ESC quit\n")
+    while not glfw.window_should_close(win):
+        glfw.poll_events()
+        # Held keys -> command, every frame. Nothing held -> stop.
+        fwd = down(glfw.KEY_UP, glfw.KEY_W) - down(glfw.KEY_DOWN, glfw.KEY_S)
+        turn = down(glfw.KEY_LEFT, glfw.KEY_A) - down(glfw.KEY_RIGHT,
+                                                       glfw.KEY_D)
+        side = down(glfw.KEY_Q) - down(glfw.KEY_E)
+        if fwd or turn or side:
+            g = gaitlib.GAITS[gait.gait]
+            commands.apply({"type": "drive", "vx": g["speed"] * fwd,
+                            "vy": g["speed"] * side, "wz": g["turn"] * turn},
+                           remote=False)
+            driving = True
+        elif driving:
+            commands.apply({"type": "hold"}, False)
+            driving = False
+
+        # Run the physics in step with the wall clock.
+        now = time.monotonic() - wall0
+        n = 0
+        while sim_clock < now and n < 10:
+            last_tel, ticks, t_rate = loop_once(last_tel, ticks, t_rate)
+            sim_clock += dt
+            n += 1
+        if sim_clock < now - 0.2:
+            sim_clock = now                    # fell behind: don't spiral
+
+        cam.lookat[:] = [data.xpos[robot.body][0], data.xpos[robot.body][1],
+                         0.08]
+        w, h = glfw.get_framebuffer_size(win)
+        view = mj.MjrRect(0, 0, w, h)
+        mj.mjv_updateScene(model, data, opt, None, cam,
+                           mj.mjtCatBit.mjCAT_ALL, scene)
+        mj.mjr_render(view, scene, con)
+        mj.mjr_overlay(mj.mjtFont.mjFONT_NORMAL, mj.mjtGridPos.mjGRID_TOPLEFT,
+                       view, "arrows / WASD\nQ E\nSPACE\nX\n1 2 3 4\nR",
+                       "drive and turn\nsideways\nhold\ne-stop\n"
+                       "walk trot rubble crouch\nreset", con)
+        mj.mjr_overlay(mj.mjtFont.mjFONT_NORMAL,
+                       mj.mjtGridPos.mjGRID_BOTTOMLEFT, view,
+                       "gait\ncommand", f"{gait.gait}"
+                       f"{'   E-STOP' if gait.estop else ''}\n"
+                       f"{commands.describe()}", con)
+        glfw.swap_buffers(win)
+    glfw.terminate()
+    return 0
 
 
 def main():
@@ -351,49 +471,7 @@ def main():
     dt = 1.0 / CONTROL_HZ
     state = {"live": True, "hz": float(CONTROL_HZ)}
 
-    held = {}                     # key code -> time it stops counting as held
-    held_lock = threading.Lock()
-
-    def on_key(code):
-        if code in KEYS:
-            until = time.monotonic() + KEY_HOLD_S
-            # While a second key repeats, the first one held with it
-            # (forward while turning) stays held too.
-            with held_lock:
-                for k in held:
-                    held[k] = max(held[k], until)
-                held[code] = until
-            return
-        elif code in GAIT_KEYS:
-            commands.apply({"type": "gait", "id": GAIT_KEYS[code]}, False)
-        elif code == 268:
-            commands.apply({"type": "hold"}, False)
-        elif code == 269:
-            commands.apply({"type": "estop", "engaged": not gait.estop},
-                           False)
-        print(f"\r  {commands.describe():<70}", end="", flush=True)
-
-    def keyboard():
-        now = time.monotonic()
-        with held_lock:
-            for k in [k for k, t in held.items() if t < now]:
-                del held[k]
-            keys = list(held)
-        if keys:
-            g = gaitlib.GAITS[gait.gait]
-            vx = sum(KEYS[k][0] for k in keys)
-            vy = sum(KEYS[k][1] for k in keys)
-            wz = sum(KEYS[k][2] for k in keys)
-            commands.apply({"type": "drive", "vx": g["speed"] * vx,
-                            "vy": g["speed"] * vy, "wz": g["turn"] * wz},
-                           remote=False)
-            state["keys"] = True
-        elif state.get("keys"):
-            commands.apply({"type": "hold"}, False)
-            state["keys"] = False
-
     def loop_once(last_tel, ticks, t_rate):
-        keyboard()
         commands.tick()
         heading, pos = heading_and_position(robot)
         targets = gait.step(dt, heading=heading, position=pos)
@@ -420,22 +498,7 @@ def main():
         except KeyboardInterrupt:
             return 0
 
-    import mujoco.viewer
-    print("  hold UP/DOWN to walk, LEFT/RIGHT to turn (together = curve)"
-          "  PGUP/PGDN sideways  HOME hold  END e-stop  F9-F12 gait\n")
-    with mujoco.viewer.launch_passive(robot.model, robot.data,
-                                      key_callback=on_key) as viewer:
-        viewer.cam.lookat[:] = [0.0, 0.0, 0.08]
-        viewer.cam.distance, viewer.cam.elevation = 1.1, -22.0
-        viewer.cam.azimuth = 135.0
-        while viewer.is_running() and state["live"]:
-            with viewer.lock():
-                last_tel, ticks, t_rate = loop_once(last_tel, ticks, t_rate)
-                viewer.cam.lookat[:2] = robot.data.xpos[robot.body][:2]
-            viewer.sync()
-            next_t += dt
-            time.sleep(max(0.0, next_t - time.monotonic()))
-    return 0
+    return window(robot, gait, commands, loop_once, dt)
 
 
 if __name__ == "__main__":
