@@ -444,7 +444,7 @@ def window(robot, gait, commands, loop_once, dt):
             sim_clock = now                    # fell behind: don't spiral
 
         cam.lookat[:] = [data.xpos[robot.body][0], data.xpos[robot.body][1],
-                         0.08]
+                         data.xpos[robot.body][2]]
         w, h = glfw.get_framebuffer_size(win)
         view = mj.MjrRect(0, 0, w, h)
         mj.mjv_updateScene(model, data, opt, None, cam,
