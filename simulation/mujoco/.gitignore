@@ -1,2 +1,5 @@
 spider.xml
 __pycache__/
+spider_*.xml
+.env_*.xml
+runs/

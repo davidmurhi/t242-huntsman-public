@@ -1,0 +1,7 @@
+# For training (train.py, huntsman_env.py, watch_policy.py).
+# The simulation itself only needs requirements.txt.
+-r requirements.txt
+gymnasium>=0.29
+stable-baselines3>=2.3
+torch>=2.2
+tensorboard>=2.15

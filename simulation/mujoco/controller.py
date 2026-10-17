@@ -8,6 +8,7 @@ streams back out on the same connection.
 
     python controller.py                  3D window + drive pad (every OS)
     python controller.py --headless       no 3D window (server only)
+    python controller.py --terrain rubble rubble, slope, steps or mixed ground
 
     (Plain python, not mjpython: the window is our own, so it can read
     exactly which keys are held down.)
@@ -254,10 +255,13 @@ class Server:
 class Robot:
     """The MuJoCo model, stepped in real time."""
 
-    def __init__(self):
+    def __init__(self, terrain="flat"):
         import mujoco
         self.mj = mujoco
         path = os.path.join(HERE, "spider.xml")
+        if terrain != "flat" and os.path.exists(path):
+            import terrain as terrainlib
+            path = terrainlib.write(terrain)
         if not os.path.exists(path):
             sys.exit("spider.xml not found. Run first:  python spider.py --save")
         self.model = mujoco.MjModel.from_xml_path(path)
@@ -464,9 +468,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--terrain", default="flat",
+                    choices=("flat", "rubble", "slope", "steps", "mixed"),
+                    help="ground to drive on (terrain.py)")
     args = ap.parse_args()
 
-    robot = Robot()
+    robot = Robot(args.terrain)
     gait = gaitlib.from_spider()
     commands = Commands(gait)
     server = Server(commands, port=args.port)
