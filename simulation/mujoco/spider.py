@@ -51,6 +51,12 @@ CAD = os.path.join(HERE, "cad", "huntsman_cad.json")
 # Standing pose. The CAD has every leg laid out flat. Ronan's photos of
 # the built robot stand with the femur roughly level and the acrylic
 # lower leg dropping steeply to the floor.
+# Hip yaw in the standing pose, degrees forward (+) or back (-) of the
+# CAD layout, per pair front to back. In the CAD the two middle legs on
+# each side point straight out with their femur brackets only 6 mm apart,
+# so they could never step independently. Splaying them apart, as the
+# built robot in Ronan's photos does, gives every leg room of its own.
+STANCE_YAW = (8.0, 14.0, -6.0, -12.0)
 FEMUR_ANGLE_UP = 10.0          # knee raises the femur this far above level
 TIBIA_ANGLE_DOWN = 72.0        # lower leg this far below level
 
@@ -94,7 +100,7 @@ VISUAL_ONLY = {"Servo Mount - Horn Frame", "horn", "spline"}
 
 # The Makita battery sits in a light-grey slide mount ('Makitabattery' in
 # bot.iam, not in the pack). Drawn from the render, no collision, no mass.
-BATTERY_MOUNT_RISE = 0.022      # how far up the battery the mount comes
+BATTERY_MOUNT_RISE = 0.012      # how far up the battery the mount comes
 
 # =====================================================================
 
@@ -135,6 +141,7 @@ def name_legs(cad):
                  if np.sign(lg["joints"]["hip"]["pivot"][1]) == side]
         group.sort(key=lambda lg: -lg["joints"]["hip"]["pivot"][0])
         for i, lg in enumerate(group):
+            lg["_pair"] = i
             named[f"{letter}{i + 1}"] = lg
     return named
 
@@ -167,6 +174,19 @@ def pose_leg(lg):
     def turn(points, pivot, axis, deg):
         return (points - pivot) @ rot(axis, deg).T + pivot
 
+    # Hip: splay the whole leg to its standing direction. Positive yaw
+    # swings the foot forward on both sides.
+    side = 1.0 if out[1] > 0 else -1.0
+    yaw = -side * STANCE_YAW[int(lg["_pair"])]
+    for link in ("coxa", "femur", "tibia"):
+        links[link] = [(a, b, m, turn(v, hip, [0, 0, 1], yaw))
+                       for a, b, m, v in links[link]]
+    knee = turn(knee, hip, [0, 0, 1], yaw)
+    ankle = turn(ankle, hip, [0, 0, 1], yaw)
+    tip = turn(tip, hip, [0, 0, 1], yaw)
+    out = rot([0, 0, 1], yaw) @ out
+    lift = np.cross(out, [0.0, 0.0, 1.0])
+
     # Knee: raise the femur and everything beyond it.
     for link in ("femur", "tibia"):
         links[link] = [(a, b, m, turn(v, knee, lift, FEMUR_ANGLE_UP))
@@ -186,7 +206,7 @@ def pose_leg(lg):
             "axis": {"hip": np.array([0.0, 0.0, 1.0]), "knee": lift,
                      "ankle": lift},
             "links": links, "tip": tip, "out": out,
-            "stand": {"knee": FEMUR_ANGLE_UP, "ankle": drop}}
+            "stand": {"hip": yaw, "knee": FEMUR_ANGLE_UP, "ankle": drop}}
 
 
 def build_robot():
@@ -213,8 +233,8 @@ def total_mass(cad):
 # =====================================================================
 
 def leg_cloud(L, swing=0.0):
-    """All femur and tibia vertices of a leg, optionally swung at the hip."""
-    pts = np.vstack([v for link in ("femur", "tibia")
+    """All solid vertices of a leg, optionally swung at the hip."""
+    pts = np.vstack([v for link in ("coxa", "femur", "tibia")
                      for _a, part, _m, v in L["links"][link]
                      if part not in VISUAL_ONLY])
     if swing:
@@ -261,8 +281,7 @@ def run_checks(cad, legs, ground):
             if rest < MIN_LEG_GAP:
                 problems.append(line + " - touching while standing")
             else:
-                notes.append(line + ("  << must move together"
-                                     if allowed < 3.0 else ""))
+                notes.append(line + ("  << tight" if allowed < 3.0 else ""))
     low = min(min(v[2] for v in p["vertices"]) for p in cad["body"])
     clearance = low - ground
     line = f"belly {clearance * 1000:.0f} mm off the floor standing"
@@ -307,12 +326,12 @@ def build_model():
     plate_top = 0.0
     mount_top = lo[2] + BATTERY_MOUNT_RISE
     body.append(f'      <geom name="battery_mount" type="box" size="'
-                f'{n(half[0] + 0.004)} {n(half[1] + 0.004)} '
+                f'{n(half[0] + 0.002)} {n(half[1] + 0.002)} '
                 f'{n((mount_top - plate_top) / 2)}" pos="{n(mid[0])} '
                 f'{n(mid[1])} {n((mount_top + plate_top) / 2)}" '
                 f'rgba="0.72 0.73 0.74 1" density="0" contype="0" '
                 f'conaffinity="0"/>')
-    band_lo, band_hi = mount_top, mount_top + 0.011
+    band_lo, band_hi = mount_top, mount_top + 0.009
     body.append(f'      <geom name="battery_band" type="box" size="'
                 f'{n(half[0] + 0.0015)} {n(half[1] + 0.0015)} '
                 f'{n((band_hi - band_lo) / 2)}" pos="{n(mid[0])} {n(mid[1])} '

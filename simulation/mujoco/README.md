@@ -43,21 +43,30 @@ python3 cad/extract_cad.py path/to/Huntsman/
 
 ## How it walks (measured in MuJoCo 3.3)
 
-| over 30 s on flat ground | |
+| over 60 s on flat ground | |
 |---|---|
-| distance | 3.0 m forward (10 cm/s), battery at the back |
-| off its line | under 2 cm |
-| body tilt | under 1 deg |
+| distance | 6.1 m forward (10 cm/s), battery at the back |
+| off its line | under 1 cm (2.5 cm over 3 m with heading hold off) |
+| body tilt | under 1.5 deg |
 | leg-to-leg contact | none |
-| servos at their torque limit | about 3% of the time |
+| servos at their torque limit | about 3.5% of the time |
 
-The gait is a paired wave: four beats, two legs up per beat, six planted.
-The two middle legs on a side always step together (their brackets are
-6 mm apart), and front/rear pairs step together so their sideways pushes
-cancel. Heading hold steers back to the starting line by lengthening one
-side's stride, as the real robot will with its IMU; the legs are one
-assembly repeated rather than mirrored, so without it the robot crabs
-about 6% sideways.
+The gait is a spider's ripple: every leg lifts at its own moment, eight
+per cycle, about two feet in the air at once. Down each side the wave runs
+front to back a quarter cycle apart, and the right side runs five-eighths
+of a cycle behind the left. Front to back was chosen by measurement: run
+back to front on this geometry, each front leg swings into the middle leg
+behind it.
+
+Standing, the legs splay from the CAD layout (`STANCE_YAW` in
+`spider.py`): the middle pair apart, like the built robot in Ronan's
+photos, so every leg has room to step independently. The splay respects a
+limit found by sweeping hip angles in MuJoCo: on the right side the third
+leg's femur meets the rear leg's knee bracket if it turns back more than
+about 22 deg from the CAD position.
+
+Heading hold steers back to the starting line by lengthening one side's
+stride, as the real robot will with its IMU.
 
 **Servo targets are radians.** MuJoCo converts joint ranges to radians
 under `angle="degree"` but not actuator control ranges, so `walk.py`
@@ -66,11 +75,11 @@ servo into its stop.
 
 ## Findings for V Source
 
-* The two middle legs on each side have hips 62 mm apart and femur brackets
-  56 mm wide, leaving about 6 mm. Any gait that swings them in opposite
-  directions makes them collide, so the gait moves them together. Worth
-  confirming against the built robot, whose middle legs look more splayed
-  in the photos.
+* In the CAD the two middle legs on each side have hips 62 mm apart and
+  femur brackets 56 mm wide, leaving about 6 mm, so they cannot step
+  independently from the CAD pose. The simulation splays them apart, as
+  the built robot appears to in the photos; worth confirming the real
+  standing angles with Ronan.
 * Standing on six feet the knee servo holds about 1.1 N.m, 20% of the
   DSC55MG's 5.4 N.m stall rating; on four feet about 30%.
 
@@ -79,6 +88,6 @@ servo into its stop.
 | file | purpose |
 |---|---|
 | `spider.py` | builds the robot from `cad/huntsman_cad.json`, prints the build report and checks |
-| `walk.py` | paired wave gait with heading hold: two legs up per beat, middle legs always together |
+| `walk.py` | spider ripple gait with heading hold: every leg on its own beat |
 | `cad/` | Inventor reader, extractor and the extracted geometry |
 | `diagnostics/` | contact, pose and actuator probes used while tuning |

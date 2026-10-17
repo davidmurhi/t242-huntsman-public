@@ -63,6 +63,10 @@ PIECES = {
         lambda p: (p[:, 0] <= -12.70) & (p[:, 2] <= -6.00),   # lower prong
         lambda p: (p[:, 0] <= -13.60) & (p[:, 2] >= -4.25),   # upper prong
     ],
+    "body": [                                    # main deck, battery tab
+        lambda p: p[:, 0] <= 12.40,
+        lambda p: (p[:, 0] >= 12.50) & (np.abs(p[:, 2]) <= 3.40),
+    ],
     "9imod 55kg": [                              # case, mounting tabs
         lambda p: (np.abs(p[:, 0]) <= 2.001) & (p[:, 1] <= 3.96),
         lambda p: (p[:, 1] >= 2.72) & (p[:, 1] <= 3.06),
@@ -76,6 +80,13 @@ def _disc(cx, cz, y0, y1, r, k=20):
     ring = np.stack([cx + r * np.cos(a), np.zeros(k), cz + r * np.sin(a)], 1)
     return np.vstack([ring + [0, y0, 0], ring + [0, y1, 0]])
 
+
+# Points added to a piece so it meets its neighbour: the battery tab runs
+# back into the main deck rather than stopping 1 mm short of it.
+PIECE_EXTRA = {
+    ("body", 1): np.array([[12.2, y, z] for y in (0.0, 0.5)
+                           for z in (-3.35, 3.35)]),
+}
 
 VISUALS = {
     "9imod 55kg": [("horn", _disc(-1.05, 0.0, 4.05, 4.30, 1.05)),
@@ -196,6 +207,9 @@ def main():
         local = parts[base]
         groups = ([local[sel(local)] for sel in PIECES[base]]
                   if base in PIECES else [local])
+        groups = [np.vstack([g, PIECE_EXTRA[(base, k)]])
+                  if (base, k) in PIECE_EXTRA else g
+                  for k, g in enumerate(groups)]
         groups = [g for g in groups if len(g) >= 4]
         mass = MASS_G.get(base, 0) / 1000.0
         for k, g in enumerate(groups):

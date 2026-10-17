@@ -2,38 +2,41 @@
 """
 walk.py
 
-Makes the CAD-calibrated Huntsman walk in a straight line.
+Makes the CAD-built Huntsman walk in a straight line, front first (the
+battery rides at the back).
 
 Run spider.py first so spider.xml exists. This file only drives it.
 
-THE GAIT: PAIRED WAVE
-    Four beats per cycle, two legs in the air on each beat, six planted:
+THE GAIT: A SPIDER'S RIPPLE
+    Every leg steps on its own, one at a time, eight distinct moments per
+    cycle. Down each side a wave runs from the front leg to the back, a
+    quarter cycle apart; the right side runs five-eighths of a cycle
+    behind the left, so no two legs ever lift at the same instant:
 
-        beat 1   l2 + l3     left middle pair
-        beat 2   r1 + r4     right front and rear
-        beat 3   r2 + r3     right middle pair
-        beat 4   l1 + l4     left front and rear
+        left    l1 0.000   l2 0.250   l3 0.500   l4 0.750
+        right   r1 0.625   r2 0.875   r3 0.125   r4 0.375
 
-    Why these pairs, and not the row-by-row gait used on the placeholder
-    model:
+    About two feet are in the air at once and six stay planted.
 
-    1. The middle legs' hips are 62 mm apart in V Source's CAD, leaving
-       6 mm between their femur brackets. If l2 and l3 ever swing in
-       opposite directions they touch almost immediately (spider.py
-       --check measures this from the CAD geometry). Here the two middle legs on a side always lift and
-       swing together, so the gap between them never changes.
+    Why front to back, when many animals ripple back to front? Measured
+    in MuJoCo on V Source's geometry: back-to-front makes each front leg
+    swing forward just as the middle leg behind it reaches the back of
+    its stroke, and their femur brackets meet. Front-to-back means a leg
+    steps just after its neighbour ahead has landed forward, so
+    neighbours always move the same way: zero leg contact, measured.
 
-    2. The front legs are fanned about 30 degrees forward and the rear
-       legs about 23 degrees back, so their hips push sideways as well as
-       backwards. When l1 and l4 step together those sideways pushes
-       largely cancel, and r1 with r4 cancels the remainder on the
-       mirrored beat. The middle legs point straight out and push
-       straight back. Every beat is balanced side to side, so the robot
-       should not crab.
+    The stance splay in spider.py (STANCE_YAW) gives every leg room of
+    its own. In the CAD the two middle legs on a side point straight out
+    with 6 mm between their brackets; standing, they splay apart like
+    the built robot in Ronan's photos.
 
-    3. Two feet up, six down, the same support the placeholder model
-       needed to stop rocking. Each beat lifts one diagonal-ish pair, so
-       the centre of mass stays inside the six planted feet.
+    Heading hold steers back to the starting line by lengthening one
+    side's stride. The ripple is nearly balanced on its own (2.5 cm off
+    line over 3 m without it); with it, under 1 cm.
+
+    Measured over 60 s: 10 cm/s, within 1 cm of its line, body tilt
+    under 1.5 deg, no leg contact, servos at their limit ~3.5% of the
+    time.
 
 HOW A FOOT LIFTS
     The knee raises the femur and the ankle turns back by the same amount
@@ -89,11 +92,19 @@ FASTEST, SLOWEST = 0.6, 4.0
 try:
     from spider import LEG_FAN
 except ImportError:
-    LEG_FAN = (22.7, 0.0, 0.0, -30.0)
+    LEG_FAN = (30.7, 15.0, -15.0, -38.0)
 
-# Which beat (0-3) each leg steps on.
-BEATS = {"l2": 0, "l3": 0, "r1": 1, "r4": 1,
-         "r2": 2, "r3": 2, "l1": 3, "l4": 3}
+# When each leg lifts, as a fraction of the cycle. A spider's ripple: on
+# each side a wave runs from the back leg to the front, a quarter cycle
+# apart, and the right side runs SIDE_LAG behind the left. Every leg has
+# its own moment; no two legs on the same side ever move together.
+WAVE = {1: 0.00, 2: 0.25, 3: 0.50, 4: 0.75}     # pair -> lift time, left
+SIDE_LAG = 0.625
+
+
+def lift_time(leg):
+    t = WAVE[int(leg[1])]
+    return t if leg[0] == "l" else (t + SIDE_LAG) % 1.0
 
 
 def swing_scale(pair_index):
@@ -104,12 +115,12 @@ def swing_scale(pair_index):
 
 def _build_legs():
     legs = []
-    for leg, beat in BEATS.items():
+    for leg in ("l1", "r1", "l2", "r2", "l3", "r3", "l4", "r4"):
         side = 1.0 if leg[0] == "l" else -1.0
         pair = int(leg[1])
         # A leg lifts when (cycle + offset) wraps past zero, so the offset
         # is the mirror of the moment it should step.
-        offset = (1.0 - beat / 4.0) % 1.0
+        offset = (1.0 - lift_time(leg)) % 1.0
         legs.append((leg, side, offset, swing_scale(pair - 1)))
     return legs
 
@@ -256,7 +267,7 @@ def check(model, actuators, seconds=20.0):
     fwd, side = end[0] - start[0], end[1] - start[1]
 
     print()
-    print("Walk check - paired wave gait on the CAD model")
+    print("Walk check - spider ripple on the CAD model")
     print("=" * 56)
     print(f"  stood at             {settled[2]:.4f} m")
     print(f"  walked forward       {fwd:+.3f} m in {seconds:.0f} s "
@@ -403,7 +414,7 @@ def main():
     model, actuators = load()
     print(f"loaded spider.xml - {model.nu} servos, "
           f"{sum(model.body_mass):.3f} kg")
-    print("gait: paired wave, two legs up per beat")
+    print("gait: spider ripple, front to back, every leg on its own beat")
     for leg, _s, off, sc in sorted(LEGS, key=lambda r: (1 - r[2]) % 1):
         print(f"    {leg}  steps at {(1.0 - off) % 1.0:.0%} of the cycle, "
               f"swings {STEP_REACH * sc:.1f} deg")
