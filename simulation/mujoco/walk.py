@@ -17,16 +17,17 @@ THE GAIT: PAIRED WAVE
     Why these pairs, and not the row-by-row gait used on the placeholder
     model:
 
-    1. The middle legs are 63 mm apart in the CAD, with about 7 mm between
-       their femur brackets. If l2 and l3 ever swing in opposite
-       directions they collide within half a degree (spider.py --check
-       reports this). Here the two middle legs on a side always lift and
+    1. The middle legs' hips are 62 mm apart in V Source's CAD, leaving
+       6 mm between their femur brackets. If l2 and l3 ever swing in
+       opposite directions they touch almost immediately (spider.py
+       --check measures this from the CAD geometry). Here the two middle legs on a side always lift and
        swing together, so the gap between them never changes.
 
-    2. The front and rear legs are fanned 29 degrees forward and back, so
-       their hips push sideways as well as backwards. l1 is fanned +29 and
-       l4 -29, so when they step together their sideways pushes cancel.
-       Same for r1 and r4. The middle legs point straight out and push
+    2. The front legs are fanned about 30 degrees forward and the rear
+       legs about 23 degrees back, so their hips push sideways as well as
+       backwards. When l1 and l4 step together those sideways pushes
+       largely cancel, and r1 with r4 cancels the remainder on the
+       mirrored beat. The middle legs point straight out and push
        straight back. Every beat is balanced side to side, so the robot
        should not crab.
 
@@ -77,7 +78,7 @@ FASTEST, SLOWEST = 0.6, 4.0
 try:
     from spider import LEG_FAN
 except ImportError:
-    LEG_FAN = (29.0, 0.0, 0.0, -29.0)
+    LEG_FAN = (30.0, 0.0, 0.0, -22.7)
 
 # Which beat (0-3) each leg steps on.
 BEATS = {"l2": 0, "l3": 0, "r1": 1, "r4": 1,

@@ -15,7 +15,7 @@ no momentum, no falling. If legs overlap here, the poses themselves are
 bad. If nothing overlaps here but they collide while walking, the poses
 are fine and the robot is losing its balance.
 
-    python3 diagnostics/poses.py
+    python3 poses.py
 """
 
 import math
@@ -36,13 +36,10 @@ SAMPLES = 72          # poses tested around one full cycle
 def part_of(name):
     if name is None or name == "ground":
         return "ground"
-    if (name.startswith(("body", "battery", "payload"))
-            or name.endswith("_hip_servo")):
-        return "body"
     for leg in LEGS:
         if name.startswith(leg + "_"):
             return leg
-    return name
+    return "body"
 
 
 def ease(x):

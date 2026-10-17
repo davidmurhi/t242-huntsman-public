@@ -7,7 +7,7 @@ Finds out what is overlapping while the robot just stands there.
 No gait, no walking. Settles the robot and asks MuJoCo which parts are
 touching, where they are, and how far into each other they have sunk.
 
-    python3 diagnostics/rest.py
+    python3 rest.py
 """
 
 import os

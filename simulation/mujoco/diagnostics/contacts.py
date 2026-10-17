@@ -5,7 +5,7 @@ contacts.py
 Dumps exactly what is touching what, with positions and distances, so
 there is no guessing about which parts are really involved.
 
-    python3 diagnostics/contacts.py
+    python3 contacts.py
 """
 
 import math

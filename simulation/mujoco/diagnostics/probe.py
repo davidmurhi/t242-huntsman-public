@@ -15,7 +15,7 @@ It answers four questions:
   4. Do the feet trace clean paths with gravity off and the body held
      still, which would separate a kinematic fault from a balance one?
 
-    python3 diagnostics/probe.py
+    python3 probe.py
 """
 
 from __future__ import annotations
@@ -38,13 +38,10 @@ SECONDS = 8.0
 def part_of(name):
     if name is None or name == "ground":
         return "ground"
-    if (name.startswith(("body", "battery", "payload"))
-            or name.endswith("_hip_servo")):
-        return "body"
     for leg in LEGS:
         if name.startswith(leg + "_"):
             return leg
-    return name
+    return "body"
 
 
 def rpy(quat):

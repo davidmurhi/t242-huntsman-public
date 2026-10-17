@@ -10,7 +10,7 @@ pair of parts that touch each other, how often, and how hard.
 
 Run spider.py and have walk.py beside it, then:
 
-    python3 diagnostics/tangle.py
+    python3 tangle.py
 
 No viewer, no graphics. Takes about ten seconds.
 """
@@ -38,13 +38,10 @@ def part_of(name):
         return "?"
     if name in ("ground",):
         return "ground"
-    if (name.startswith(("body", "battery", "payload"))
-            or name.endswith("_hip_servo")):
-        return "body"
     for leg in LEGS:
         if name.startswith(leg + "_"):
             return leg
-    return name
+    return "body"
 
 
 def main():
