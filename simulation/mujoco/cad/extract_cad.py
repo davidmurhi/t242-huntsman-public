@@ -117,9 +117,10 @@ SKINS = {
     ("Servo Bracket - U Shaped bis", 2): (2, 0, 1),
     ("body", 0): (1, 2, 0),
 }
-# The body plate is drawn as one outline: the main deck and the battery
-# tab together, with the two concave fillets where they meet (the large
-# circles at x = 12.5 cm in body.ipt) cut out of it.
+# The body plate is drawn as one outline traced from body.ipt's own edges
+# (cad/sab.py): the V-shaped front and back that follow the legs, the
+# fillets into the battery tab, and every cut-out (the eight hip-servo
+# pockets, screw holes and slots).
 SKIN_UNION = {("body", 0): (0, 1)}
 
 
@@ -448,6 +449,18 @@ def main():
                         sk = skin_of_union([groups[j] for j in
                                             SKIN_UNION[(base, k)]], cs,
                                            SKINS[(base, k)])
+                        a_, u_, v_ = SKINS[(base, k)]
+                        lp = inventor.plate_loops(f(base + ".ipt"), a_,
+                                                  float(g[:, a_].min()),
+                                                  (u_, v_))
+                        if lp:
+                            poly = lp[0]
+                            sk["outline"] = np.round(poly, 4).tolist()
+                            sk["tris"] = [list(map(int, t)) for t in
+                                          _ear_clip(poly.tolist())]
+                            sk["holes"] = []
+                            sk["hole_polys"] = [np.round(h, 4).tolist()
+                                                for h in lp[1:]]
                     else:
                         sk = skin_of(g, cs, SKINS[(base, k)])
                     if base == "9imod 55kg" and k == 0:

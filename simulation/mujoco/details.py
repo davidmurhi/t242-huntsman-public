@@ -2,17 +2,17 @@
 details.py
 
 The body-mounted pieces that are not plates: the Makita battery and its
-mount, the payload case on top (case2) and the rail sled underneath
-(rear rail v2). All are drawn only; none of them adds collision shapes
-beyond what spider.py already gives the battery and payload.
+slide mount, the payload case on top (case2) and the rail sled under the
+plate (rear rail v2). All are drawn only; none of them adds collision
+shapes beyond what spider.py already gives the battery and payload.
 
 Where the CAD has it, the CAD decides:
-    battery     outline from Battery LxT 18V v7.ipt, cut into its
-                colour bands; release button and the four yellow screw
-                heads at the circles in the part file
+    battery     its own outline from Battery LxT 18V v7.ipt, coloured in
+                bands like Ronan's render, release button and screw heads
+                at the circles in the part file
 Where it does not (case2, rear rail v2 and Makitabattery were not in
-the pack), sizes come from Ronan's renders, scaled by the body plate
-(230 mm wide), and positions from where bot.iam places them.
+the pack), shapes and sizes come from Ronan's renders, scaled by the
+body plate (230 mm wide), at the positions bot.iam places them.
 """
 
 from __future__ import annotations
@@ -20,40 +20,50 @@ from __future__ import annotations
 import os
 
 import numpy as np
-from PIL import Image, ImageDraw
 
 # --------------------------------------------------------------------
 # Colours (r g b), Ronan's renders
 # --------------------------------------------------------------------
-CHARCOAL = (0.25, 0.25, 0.26)
-BAT_CAP = (0.19, 0.19, 0.20)
+CHARCOAL = (0.27, 0.27, 0.28)
 YELLOW = (0.98, 0.72, 0.10)
-MOUNT_GREY = (0.78, 0.79, 0.80)
-SLED_GREY = (0.82, 0.83, 0.84)
+MOUNT_GREY = (0.80, 0.81, 0.82)
+SLED_GREY = (0.80, 0.81, 0.82)
+SLED_WHITE = (0.93, 0.93, 0.94)
+CASE_BLACK = (0.075, 0.075, 0.08)
 WHITE = (0.95, 0.95, 0.96)
+SLOT = (0.12, 0.12, 0.13)
 
 # --------------------------------------------------------------------
 # Battery bands, by height above the plate (m): the slide mount covers
-# the rails, then a yellow band, then the charcoal housing.
+# the rails, then the yellow band, then the charcoal housing.
 # --------------------------------------------------------------------
 MOUNT_RISE = 0.0165
+MOUNT_MARGIN = 0.003            # mount stands this far outside the battery
 BAND = 0.010
 
 # --------------------------------------------------------------------
-# Payload case (case2), from the renders: 129 x 93 x 60 mm, front end
-# narrowing in plan over its last 24 mm and its top-front edge chamfered.
+# Payload case (case2), from the renders: front end narrowing in plan
+# over its last 24 mm and its top-front edge chamfered.
 # --------------------------------------------------------------------
 CASE_TAPER = (0.024, 0.008)     # length of taper, inset each side
 CASE_CHAMFER = 0.014            # top-front edge
 CASE_REAR_CHAMFER = 0.003
 
 # --------------------------------------------------------------------
-# Rail sled under the plate (rear rail v2), from the underside render.
+# Rail sled under the plate (rear rail v2), from the underside render:
+# two flat runners, rounded in section, running from under the front of
+# the plate back past the battery, their front ends curving up into the
+# plate like sled runners; a recessed deck between them with a long slot
+# and a raised block.
 # --------------------------------------------------------------------
-SLED_X = (-0.203, 0.047)        # rear and front ends
-SKI_Y = 0.030                   # ski centre lines either side
-SKI_W, SKI_H = 0.024, 0.020
-SLED_TOP = -0.005               # underside of the plate
+SLED_X = (-0.212, 0.100)        # rear and front ends of the runners
+RUNNER_Y = 0.034                # runner centre lines either side
+RUNNER_W = 0.024                # width
+RUNNER_D = 0.022                # depth below the plate
+RUNNER_TIP = 0.060              # length of the curved-up front
+RUNNER_EDGE = 0.005             # radius of the rounded edges
+DECK_DROP = 0.007               # deck sits this far below the plate
+PLATE_UNDER = -0.005            # underside of the plate
 
 
 def _n(v):
@@ -94,82 +104,54 @@ def _slab(points, lo, hi, axis=2):
     return HalfspaceIntersection(eq, inside).intersections
 
 
-def speckle_texture(path, size=512, seed=7):
-    """Black 3D-print grain for the case."""
-    rng = np.random.default_rng(seed)
-    base = rng.normal(20, 6, (size, size))
-    for _ in range(3):
-        base = (base + np.roll(base, 1, 0) + np.roll(base, 1, 1)) / 3
-    base += rng.normal(0, 4, (size, size))
-    flecks = rng.random((size, size)) > 0.996
-    base[flecks] = 70
-    a = np.clip(base, 4, 90).astype("uint8")
-    Image.fromarray(np.stack([a] * 3, -1)).save(path)
-
-
-def case_top_texture(path, L, W, px=8):
-    """Top of the case: grain, the recessed panel and its cable slots."""
-    w, h = int(L * 1000 * px), int(W * 1000 * px)
-    rng = np.random.default_rng(3)
-    a = np.clip(rng.normal(21, 7, (h, w)), 4, 80)
-    a[rng.random((h, w)) > 0.996] = 70
-    img = Image.fromarray(np.stack([a.astype("uint8")] * 3, -1))
-    d = ImageDraw.Draw(img)
-    mm = lambda x, y: (x * px, y * px)                      # noqa: E731
-    # Recessed panel: 82 x 62 mm, set back 18 mm from the rear edge.
-    x0, y0 = 18, (W * 1000 - 62) / 2
-    d.rectangle([mm(x0, y0), mm(x0 + 82, y0 + 62)], outline=(46, 46, 48),
-                width=px)
-    d.rectangle([mm(x0 + 1, y0 + 1), mm(x0 + 81, y0 + 61)],
-                outline=(10, 10, 11), width=max(1, px // 2))
-    # Cable slots seen in the render.
-    for sx, sy, sl in ((40, y0 + 14, 16), (70, y0 + 40, 10), (56, y0 + 50, 8)):
-        d.rounded_rectangle([mm(sx, sy), mm(sx + sl, sy + 3)], radius=px,
-                            fill=(150, 150, 152))
-    img.save(path)
+def _rounded_box(lo, hi, r, k=6):
+    """Points of a box with all edges rounded by r (convex)."""
+    lo, hi = np.asarray(lo, float) + r, np.asarray(hi, float) - r
+    pts = []
+    for u in np.linspace(0, np.pi / 2, k):
+        for w in np.linspace(0, np.pi / 2, k):
+            d = np.array([np.cos(u) * np.cos(w), np.cos(u) * np.sin(w),
+                          np.sin(u)]) * r
+            for sx in (-1, 1):
+                for sy in (-1, 1):
+                    for sz in (-1, 1):
+                        c = np.array([hi[0] if sx > 0 else lo[0],
+                                      hi[1] if sy > 0 else lo[1],
+                                      hi[2] if sz > 0 else lo[2]])
+                        pts.append(c + d * [sx, sy, sz])
+    return np.array(pts)
 
 
 def build(cad, folder):
-    """Returns (asset lines, body geom lines)."""
+    """Battery and its mount. Returns (asset lines, body geom lines)."""
     os.makedirs(folder, exist_ok=True)
     assets, geoms = [], []
 
-    # ---------------- battery ----------------
     bat = next(p for p in cad["body"] if p["part"] == "Battery LxT 18V v7")
     v = np.array(bat["vertices"])
-    z0 = v[:, 2].min()
-    bands = [("bat_band", z0 + MOUNT_RISE - 0.001, z0 + MOUNT_RISE + BAND,
-              YELLOW),
-             ("bat_body", z0 + MOUNT_RISE + BAND, v[:, 2].max(), CHARCOAL)]
-    for name, lo, hi, col in bands:
-        pts = _slab(v, lo, hi)
-        if name == "bat_band":                       # stand proud 0.6 mm
-            c = pts.mean(0)
-            pts[:, :2] = c[:2] + (pts[:, :2] - c[:2]) * np.array(
-                [1 + 0.0012 / max(1e-6, np.ptp(pts[:, 0])),
-                 1 + 0.0012 / max(1e-6, np.ptp(pts[:, 1]))])
-        assets.append(_mesh(f"m_{name}", pts))
-        geoms.append(_vis(f'name="{name}" type="mesh" mesh="m_{name}" '
-                          f'rgba="{_rgba(col)}"'))
-    # The rear cap (the end past the plate) is a shade darker in the render.
-    xr = v[:, 0].min()
-    cap = _slab(v, z0 + MOUNT_RISE + BAND, v[:, 2].max())
-    cap = _slab(cap, xr - 0.0005, xr + 0.014, axis=0)
-    cap[:, 0] -= 0.0004
-    assets.append(_mesh("m_bat_cap", cap))
-    geoms.append(_vis(f'name="bat_cap" type="mesh" mesh="m_bat_cap" '
-                      f'rgba="{_rgba(BAT_CAP)}"'))
-
-    # Mount: light grey slide plate the battery sits in.
     lo, hi = v.min(0), v.max(0)
-    mid, half = (lo + hi) / 2, (hi - lo) / 2
-    geoms.append(_vis(
-        f'name="battery_mount" type="box" size="{_n(half[0] - 0.006)} '
-        f'{_n(half[1] + 0.0025)} {_n((lo[2] + MOUNT_RISE) / 2)}" '
-        f'pos="{_n(mid[0] + 0.004)} {_n(mid[1])} '
-        f'{_n((lo[2] + MOUNT_RISE) / 2)}" rgba="{_rgba(MOUNT_GREY)}"'))
+    z0 = lo[2]
+    band_lo, band_hi = z0 + MOUNT_RISE, z0 + MOUNT_RISE + BAND
 
-    # Button and screw heads, at the part file's circles (cm, part frame).
+    # One clean housing and one yellow band, both cut from the battery's
+    # own outline so their sides line up exactly.
+    for name, a, b, col in (("bat_band", band_lo - 0.0005, band_hi, YELLOW),
+                            ("bat_body", band_hi, hi[2], CHARCOAL)):
+        assets.append(_mesh(f"m_{name}", _slab(v, a, b)))
+        geoms.append(_vis(f'name="{name}" type="mesh" mesh="m_{name}" '
+                          f'rgba="{_rgba(col)}" material="satin"'))
+
+    # Slide mount: a light grey block round the battery's foot, its top
+    # edges rounded, sitting on the plate.
+    m_lo = [lo[0] - MOUNT_MARGIN, lo[1] - MOUNT_MARGIN, 0.0]
+    m_hi = [hi[0] + MOUNT_MARGIN, hi[1] + MOUNT_MARGIN, z0 + MOUNT_RISE]
+    assets.append(_mesh("m_bat_mount", _rounded_box(m_lo, m_hi, 0.002)))
+    geoms.append(_vis(f'name="battery_mount" type="mesh" mesh="m_bat_mount" '
+                      f'rgba="{_rgba(MOUNT_GREY)}" material="satin"'))
+
+    # Button, screw heads, the grooves either side of the button and the
+    # vents in the band, on the end faces (button and screws at the
+    # circles in the part file; cm, part frame).
     R = np.array(bat["frame"]["rot"])
     P = np.array(bat["frame"]["pos"])
     to_sim = lambda c: R @ (np.array(c) / 100.0) + P            # noqa: E731
@@ -181,21 +163,62 @@ def build(cad, folder):
             ("bat_screw_fl", (-0.12, -1.53, -0.28), 0.28, YELLOW, -1),
             ("bat_screw_fr", (-0.12, 1.53, -0.28), 0.28, YELLOW, -1)):
         p = to_sim(c) + out * xdir * 0.0006
-        zaxis = xdir * out
         geoms.append(_vis(
             f'name="{name}" type="cylinder" size="{_n(r / 100)} 0.0008" '
-            f'pos="{_vec(p)}" zaxis="{_vec(zaxis)}" rgba="{_rgba(col)}"'))
+            f'pos="{_vec(p)}" zaxis="{_vec(xdir * out)}" '
+            f'rgba="{_rgba(col)}"'))
+    front_x = hi[0] if xdir[0] < 0 else lo[0]       # face towards the robot
+    button = to_sim((-0.06, -0.35, -2.025))
+    for k, dy in enumerate((-0.022, 0.022)):
+        geoms.append(_vis(
+            f'name="bat_groove{k}" type="capsule" size="0.0035 0.010" '
+            f'pos="{_n(front_x + 0.0004)} {_n(button[1] + dy)} '
+            f'{_n(button[2] + 0.004)}" rgba="0.17 0.17 0.18 1"'))
+    for k in range(4):
+        geoms.append(_vis(
+            f'name="bat_vent{k}" type="box" size="0.0006 0.0016 0.0032" '
+            f'pos="{_n(front_x + 0.0003)} {_n(button[1] - 0.0075 + 0.005 * k)} '
+            f'{_n((band_lo + band_hi) / 2)}" rgba="0.15 0.15 0.16 1"'))
 
-    # Release latch: yellow, at the battery's tail, under the plate line.
+    # Release latch: the yellow tab at the battery's tail, seen from below.
+    tail = lo[0] if xdir[0] < 0 else hi[0]
     geoms.append(_vis(
-        f'name="bat_latch" type="box" size="0.010 0.015 0.0035" '
-        f'pos="{_n(lo[0] + 0.009)} 0 {_n(lo[2] - 0.0045)}" '
-        f'euler="0 -14 0" rgba="{_rgba(YELLOW)}"'))
+        f'name="bat_latch" type="capsule" size="0.0045 0.013" '
+        f'pos="{_n(tail - 0.003)} 0 {_n(PLATE_UNDER - 0.004)}" zaxis="0 1 0" '
+        f'rgba="{_rgba(YELLOW)}"'))
     return assets, geoms
 
 
+def _runner(y):
+    """One sled runner: a flat bar with rounded edges whose front end
+    curves up into the plate, like the runner of a sled (convex points)."""
+    x0, x1 = SLED_X
+    top, bottom = PLATE_UNDER, PLATE_UNDER - RUNNER_D
+    r = RUNNER_EDGE
+    zt, zb = top - r, bottom + r                   # core, inside the rounding
+    tail = (zt - zb) / 2
+    core = [(x0 + tail, zt), (x1 - r, zt)]
+    for t in np.linspace(0.0, -np.pi / 2, 18):       # the curved-up tip
+        core.append((x1 - RUNNER_TIP + (RUNNER_TIP - r) * np.cos(t),
+                     zt + (zt - zb) * np.sin(t)))
+    for t in np.linspace(-np.pi / 2, -3 * np.pi / 2, 10):   # rounded tail
+        core.append((x0 + tail + tail * np.cos(t), (zt + zb) / 2
+                     + tail * np.sin(t)))
+    dirs = []
+    for u in np.linspace(-np.pi / 2, np.pi / 2, 7):
+        for w in np.linspace(0, 2 * np.pi, 12, endpoint=False):
+            dirs.append((np.cos(u) * np.cos(w), np.cos(u) * np.sin(w),
+                         np.sin(u)))
+    half = RUNNER_W / 2 - r
+    pts = [(cx + r * dx, y + sy * half + r * dy, cz + r * dz)
+           for cx, cz in core for dx, dy, dz in dirs for sy in (-1, 1)]
+    pts = np.array(pts)
+    pts[:, 2] = np.minimum(pts[:, 2], top)
+    return pts
+
+
 def case_and_sled(size, centre_x, folder):
-    """Case mesh points, texture assets and the sled, as XML lines."""
+    """Payload case and the sled under the plate, as XML lines."""
     assets, geoms = [], []
     L, W, H = size
     xr, xf = centre_x - L / 2, centre_x + L / 2
@@ -209,50 +232,41 @@ def case_and_sled(size, centre_x, folder):
             (xr + cr, -W / 2, H), (xr + cr, W / 2, H),
             (xf - tl, -W / 2, H), (xf - tl, W / 2, H),
             (xf - c, -W / 2 + ti * 0.6, H), (xf - c, W / 2 - ti * 0.6, H)]
-    speckle_texture(os.path.join(folder, "case_grain.png"))
-    case_top_texture(os.path.join(folder, "case_top.png"),
-                     xf - c - (xr + cr), W)
-    assets += [
-        '    <texture name="case_grain" type="cube" file="textures/case_grain.png"/>',
-        '    <material name="case_grain" texture="case_grain" specular="0.05" '
-        'shininess="0.05"/>',
-        '    <texture name="case_top" type="2d" file="textures/case_top.png"/>',
-        '    <material name="case_top" texture="case_top" specular="0.05" '
-        'shininess="0.05"/>',
-        _mesh("m_case_look", pts)]
-    geoms.append(_vis('name="case_look" type="mesh" mesh="m_case_look" '
-                      'material="case_grain"'))
-    top_l = xf - c - (xr + cr)
-    geoms.append(_vis(
-        f'name="case_top" type="box" size="{_n(top_l / 2)} '
-        f'{_n(W / 2 - ti * 0.6)} 0.0002" pos="{_n(xr + cr + top_l / 2)} 0 '
-        f'{_n(H + 0.0001)}" material="case_top"'))
+    assets += ['    <material name="satin" specular="0.18" shininess="0.35"/>',
+               '    <material name="matte" specular="0.06" shininess="0.1"/>',
+               _mesh("m_case_look", pts)]
+    geoms.append(_vis(f'name="case_look" type="mesh" mesh="m_case_look" '
+                      f'rgba="{_rgba(CASE_BLACK)}" material="matte"'))
 
     # ---------------- rail sled underneath ----------------
     x0, x1 = SLED_X
-    lx, cx = (x1 - x0) / 2, (x0 + x1) / 2
-    zc = SLED_TOP - SKI_H / 2
     for side, s in (("l", 1), ("r", -1)):
-        y = s * SKI_Y
+        assets.append(_mesh(f"m_runner_{side}", _runner(s * RUNNER_Y)))
+        geoms.append(_vis(f'name="sled_runner_{side}" type="mesh" '
+                          f'mesh="m_runner_{side}" rgba="{_rgba(SLED_GREY)}" '
+                          f'material="satin"'))
+    deck_x0, deck_x1 = x0 + 0.004, x1 - RUNNER_TIP * 0.55
+    inner = RUNNER_Y - RUNNER_W / 2 + 0.001
+    # Side walls from the plate down to the deck, then the deck itself.
+    geoms.append(_vis(
+        f'name="sled_deck" type="box" size="{_n((deck_x1 - deck_x0) / 2)} '
+        f'{_n(inner)} 0.0015" pos="{_n((deck_x0 + deck_x1) / 2)} 0 '
+        f'{_n(PLATE_UNDER - DECK_DROP)}" rgba="{_rgba(SLED_GREY)}" '
+        f'material="satin"'))
+    for side, s in (("l", 1), ("r", -1)):
         geoms.append(_vis(
-            f'name="sled_ski_{side}" type="box" size="{_n(lx - SKI_W / 2)} '
-            f'{_n(SKI_W / 2)} {_n(SKI_H / 4)}" pos="{_n(cx)} {_n(y)} '
-            f'{_n(SLED_TOP - SKI_H / 4)}" rgba="{_rgba(SLED_GREY)}"'))
-        geoms.append(_vis(
-            f'name="sled_keel_{side}" type="capsule" size="{_n(SKI_W / 2)} '
-            f'{_n(lx - SKI_W / 2)}" pos="{_n(cx)} {_n(y)} '
-            f'{_n(SLED_TOP - SKI_H / 2)}" zaxis="1 0 0" '
-            f'rgba="{_rgba(SLED_GREY)}"'))
+            f'name="sled_wall_{side}" type="box" '
+            f'size="{_n((deck_x1 - deck_x0) / 2)} 0.0012 {_n(DECK_DROP / 2)}" '
+            f'pos="{_n((deck_x0 + deck_x1) / 2)} {_n(s * (inner - 0.0012))} '
+            f'{_n(PLATE_UNDER - DECK_DROP / 2)}" rgba="{_rgba(SLED_GREY)}"'))
+    slot_l = (deck_x1 - deck_x0) * 0.42
     geoms.append(_vis(
-        f'name="sled_deck" type="box" size="{_n(lx - 0.012)} '
-        f'{_n(SKI_Y)} 0.0015" pos="{_n(cx - 0.004)} 0 {_n(SLED_TOP - 0.0015)}" '
-        f'rgba="{_rgba(SLED_GREY)}"'))
+        f'name="sled_slot" type="box" size="{_n(slot_l / 2)} 0.0055 0.0002" '
+        f'pos="{_n(deck_x0 + (deck_x1 - deck_x0) * 0.62)} 0 '
+        f'{_n(PLATE_UNDER - DECK_DROP - 0.0016)}" rgba="{_rgba(SLOT)}"'))
     geoms.append(_vis(
-        f'name="sled_slot" type="box" size="{_n(lx * 0.55)} 0.006 0.0002" '
-        f'pos="{_n(cx + 0.02)} 0 {_n(SLED_TOP - 0.0031)}" '
-        f'rgba="0.30 0.31 0.33 1"'))
-    geoms.append(_vis(
-        f'name="sled_step" type="box" size="0.016 0.016 0.005" '
-        f'pos="{_n(cx - 0.012)} 0 {_n(SLED_TOP - 0.008)}" '
-        f'rgba="{_rgba((0.92, 0.92, 0.93))}"'))
+        f'name="sled_block" type="box" size="0.017 {_n(inner * 0.8)} 0.0045" '
+        f'pos="{_n(deck_x0 + (deck_x1 - deck_x0) * 0.30)} 0 '
+        f'{_n(PLATE_UNDER - DECK_DROP - 0.0045)}" rgba="{_rgba(SLED_WHITE)}" '
+        f'material="satin"'))
     return assets, geoms

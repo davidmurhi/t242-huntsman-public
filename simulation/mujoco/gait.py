@@ -66,16 +66,20 @@ _RIPPLE_BACK = {f"{n[0]}{5 - int(n[1])}": t for n, t in _RIPPLE.items()}
 _TRIPOD = {"l1": 0.0, "r2": 0.0, "l3": 0.0, "r4": 0.0,
            "r1": 0.5, "l2": 0.5, "r3": 0.5, "l4": 0.5}
 GAITS = {
-    "walk":   dict(cycle=0.90, swing=0.22, height=0.028, drop=0.000,
-                   speed=0.10, turn=25.0, lift=_RIPPLE, back=_RIPPLE_BACK),
-    "trot":   dict(cycle=0.60, swing=0.45, height=0.028, drop=0.000,
-                   speed=0.18, turn=35.0, lift=_TRIPOD, back=_TRIPOD),
-    "rubble": dict(cycle=1.30, swing=0.22, height=0.050, drop=-0.010,
-                   speed=0.07, turn=15.0, lift=_RIPPLE, back=_RIPPLE_BACK),
-    "crouch": dict(cycle=1.10, swing=0.22, height=0.020, drop=0.025,
-                   speed=0.05, turn=12.0, lift=_RIPPLE, back=_RIPPLE_BACK),
+    "walk":   dict(cycle=0.60, swing=0.22, height=0.028, drop=0.000,
+                   speed=0.20, turn=45.0, stride=0.090,
+                   lift=_RIPPLE, back=_RIPPLE_BACK),
+    "trot":   dict(cycle=0.40, swing=0.45, height=0.028, drop=0.000,
+                   speed=0.26, turn=60.0, stride=0.058,
+                   lift=_TRIPOD, back=_TRIPOD),
+    "rubble": dict(cycle=0.90, swing=0.22, height=0.050, drop=-0.010,
+                   speed=0.12, turn=30.0, stride=0.090,
+                   lift=_RIPPLE, back=_RIPPLE_BACK),
+    "crouch": dict(cycle=0.75, swing=0.22, height=0.020, drop=0.025,
+                   speed=0.10, turn=25.0, stride=0.090,
+                   lift=_RIPPLE, back=_RIPPLE_BACK),
 }
-MAX_STRIDE = 0.105        # m, longest step any foot is asked to make
+MAX_STRIDE = 0.090        # m, longest step any foot is asked to make
 ACCEL = 0.25              # m/s^2, how fast commanded speed may change
 TURN_ACCEL = 60.0         # deg/s^2
 DROP_RATE = 0.03          # m/s, body raise / lower speed between gaits
@@ -260,7 +264,8 @@ class Gait:
         strides = {n: (v + np.cross(w, self.neutral[n])) * t_stance
                    for n in LEGS}
         biggest = max(np.linalg.norm(s[:2]) for s in strides.values())
-        scale = min(1.0, MAX_STRIDE / biggest) if biggest > 0 else 1.0
+        cap = min(MAX_STRIDE, g.get("stride", MAX_STRIDE))
+        scale = min(1.0, cap / biggest) if biggest > 0 else 1.0
 
         # Which way each side is travelling: its feet's mean stance
         # velocity along the body. Switch wave direction with hysteresis.

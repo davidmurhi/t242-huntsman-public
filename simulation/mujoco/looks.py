@@ -32,14 +32,14 @@ SUPER = 3                       # draw at 3x, then shrink: smooth edges
 # Face colours (0-255), from Ronan's renders.
 FACE = {
     "9imod 55kg": (88, 89, 93),
-    "Multi Purpose Bracket": (60, 60, 52),
-    "Servo Bracket - U Shaped bis": (57, 57, 47),
+    "Multi Purpose Bracket": (46, 47, 49),
+    "Servo Bracket - U Shaped bis": (44, 45, 47),
     "body": (104, 106, 109),
 }
 LINE = {                         # the light edge lines
     "9imod 55kg": (205, 207, 210),
-    "Multi Purpose Bracket": (150, 150, 138),
-    "Servo Bracket - U Shaped bis": (146, 146, 132),
+    "Multi Purpose Bracket": (128, 130, 134),
+    "Servo Bracket - U Shaped bis": (124, 126, 130),
     "body": (190, 192, 195),
 }
 HOLE = (16, 16, 17)
@@ -103,6 +103,10 @@ def paint(part, skin, mirror=False, text=True):
         rp = r * s
         d.ellipse([x - rp, y - rp, x + rp, y + rp], fill=HOLE,
                   outline=line, width=max(1, edge - 1))
+    for hp in skin.get("hole_polys", []):
+        pts = [to_px(u, v) for u, v in hp]
+        d.polygon(pts, fill=HOLE)
+        d.line(pts + [pts[0]], fill=line, width=max(1, edge - 1), joint="curve")
     if text and not mirror:
         for word, u0, u1, v0, v1 in skin.get("text", []):
             _draw_text(img, word, (u0, u1, v0, v1), to_px)

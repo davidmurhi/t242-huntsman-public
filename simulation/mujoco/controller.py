@@ -31,12 +31,17 @@ PROTOCOL (JSON text messages)
     rollDeg / pitchDeg / yawDeg match the names Tom's dashboard store
     already uses, and the server Prab started (port 8765).
 
-KEYBOARD (3D window; the drive pad page has its own keys)
-    UP / DOWN       forward speed up / down (below zero walks backwards)
-    LEFT / RIGHT    turn rate left / right
-    PAGE UP / DOWN  sideways left / right
-    HOME            hold (stop)        END    e-stop on / off
-    F9 F10 F11 F12  gait: walk, trot, rubble, crouch
+DRIVING, like any game controller (drive pad page, a gamepad plugged in
+to the computer, or the arrow keys in the 3D window)
+    hold forward / back          walks forward / back; let go and it stops
+    hold left / right            turns on the spot
+    forward + left / right       walks forward turning that way (same backwards)
+    The drive pad page reads key presses and releases exactly, so it is
+    the best way to drive. The 3D window only hears a key while it auto-
+    repeats, so there a held key keeps going and stops ~0.4 s after you
+    let go.
+    3D window extras: PAGE UP / DOWN sideways, HOME hold, END e-stop,
+    F9 F10 F11 F12 gait: walk, trot, rubble, crouch
 """
 
 from __future__ import annotations
@@ -321,8 +326,11 @@ def heading_and_position(robot):
     return yaw, (x, y)
 
 
-KEYS = {265: ("vx", +0.02), 264: ("vx", -0.02), 263: ("wz", +5.0),
-        262: ("wz", -5.0), 266: ("vy", +0.02), 267: ("vy", -0.02)}
+# Arrow keys in the 3D window: direction -> (vx, vy, wz) as shares of the
+# gait's top speed and turn rate.
+KEYS = {265: (1, 0, 0), 264: (-1, 0, 0), 263: (0, 0, 1), 262: (0, 0, -1),
+        266: (0, 1, 0), 267: (0, -1, 0)}
+KEY_HOLD_S = 0.4      # a key counts as held this long after its last repeat
 GAIT_KEYS = {298: "walk", 299: "trot", 300: "rubble", 301: "crouch"}
 
 
@@ -343,10 +351,19 @@ def main():
     dt = 1.0 / CONTROL_HZ
     state = {"live": True, "hz": float(CONTROL_HZ)}
 
+    held = {}                     # key code -> time it stops counting as held
+    held_lock = threading.Lock()
+
     def on_key(code):
         if code in KEYS:
-            name, step = KEYS[code]
-            commands.nudge(**{"d" + name: step})
+            until = time.monotonic() + KEY_HOLD_S
+            # While a second key repeats, the first one held with it
+            # (forward while turning) stays held too.
+            with held_lock:
+                for k in held:
+                    held[k] = max(held[k], until)
+                held[code] = until
+            return
         elif code in GAIT_KEYS:
             commands.apply({"type": "gait", "id": GAIT_KEYS[code]}, False)
         elif code == 268:
@@ -356,7 +373,27 @@ def main():
                            False)
         print(f"\r  {commands.describe():<70}", end="", flush=True)
 
+    def keyboard():
+        now = time.monotonic()
+        with held_lock:
+            for k in [k for k, t in held.items() if t < now]:
+                del held[k]
+            keys = list(held)
+        if keys:
+            g = gaitlib.GAITS[gait.gait]
+            vx = sum(KEYS[k][0] for k in keys)
+            vy = sum(KEYS[k][1] for k in keys)
+            wz = sum(KEYS[k][2] for k in keys)
+            commands.apply({"type": "drive", "vx": g["speed"] * vx,
+                            "vy": g["speed"] * vy, "wz": g["turn"] * wz},
+                           remote=False)
+            state["keys"] = True
+        elif state.get("keys"):
+            commands.apply({"type": "hold"}, False)
+            state["keys"] = False
+
     def loop_once(last_tel, ticks, t_rate):
+        keyboard()
         commands.tick()
         heading, pos = heading_and_position(robot)
         targets = gait.step(dt, heading=heading, position=pos)
@@ -384,8 +421,8 @@ def main():
             return 0
 
     import mujoco.viewer
-    print("  UP/DOWN speed  LEFT/RIGHT turn  PGUP/PGDN sideways  HOME hold"
-          "  END e-stop  F9-F12 gait\n")
+    print("  hold UP/DOWN to walk, LEFT/RIGHT to turn (together = curve)"
+          "  PGUP/PGDN sideways  HOME hold  END e-stop  F9-F12 gait\n")
     with mujoco.viewer.launch_passive(robot.model, robot.data,
                                       key_callback=on_key) as viewer:
         viewer.cam.lookat[:] = [0.0, 0.0, 0.08]

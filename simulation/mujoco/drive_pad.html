@@ -59,20 +59,23 @@
   <section>
     <h2>Drive (hold to move)</h2>
     <div class="pad">
-      <button data-d="0,0,1">Rotate left<br><kbd>Q</kbd></button>
-      <button data-d="1,0,0">Forward<br><kbd>W</kbd></button>
-      <button data-d="0,0,-1">Rotate right<br><kbd>E</kbd></button>
-      <button data-d="0,1,0">Strafe left<br><kbd>A</kbd></button>
+      <button data-d="0,1,0">Strafe left<br><kbd>Q</kbd></button>
+      <button data-d="1,0,0">Forward<br><kbd>W</kbd> <kbd>↑</kbd></button>
+      <button data-d="0,-1,0">Strafe right<br><kbd>E</kbd></button>
+      <button data-d="0,0,1">Turn left<br><kbd>A</kbd> <kbd>←</kbd></button>
       <button class="hold" id="hold">HOLD<br><kbd>Space</kbd></button>
-      <button data-d="0,-1,0">Strafe right<br><kbd>D</kbd></button>
+      <button data-d="0,0,-1">Turn right<br><kbd>D</kbd> <kbd>→</kbd></button>
       <span></span>
-      <button data-d="-1,0,0">Backward<br><kbd>S</kbd></button>
+      <button data-d="-1,0,0">Backward<br><kbd>S</kbd> <kbd>↓</kbd></button>
       <span></span>
     </div>
     <h2 style="margin-top:16px">Speed <span id="speedlabel"></span></h2>
-    <input type="range" id="speed" min="10" max="100" value="80">
-    <div class="keys">Keys combine: <kbd>W</kbd>+<kbd>Q</kbd> walks a curve.
-      <kbd>X</kbd> e-stop, <kbd>1</kbd>–<kbd>4</kbd> gait.</div>
+    <input type="range" id="speed" min="10" max="100" value="100">
+    <div class="keys">Like any controller: hold forward to walk, add left or right to
+      curve, hold left or right alone to turn on the spot, let go to stop.
+      <kbd>X</kbd> e-stop, <kbd>1</kbd>–<kbd>4</kbd> gait.
+      A gamepad works too: left stick drives and turns, right stick strafes.
+      <span id="pad"></span></div>
   </section>
   <section>
     <h2>Gait</h2>
@@ -85,10 +88,10 @@
 </main>
 <script>
 const GAITS = [
-  {id: "walk",   label: "Walk",   sub: "Spider ripple · default", speed: 0.10, turn: 25},
-  {id: "trot",   label: "Trot",   sub: "Tetrapod · fastest",      speed: 0.18, turn: 35},
-  {id: "rubble", label: "Rubble", sub: "High step · slow",        speed: 0.07, turn: 15},
-  {id: "crouch", label: "Crouch", sub: "Low body · slowest",      speed: 0.05, turn: 12},
+  {id: "walk",   label: "Walk",   sub: "Spider ripple · default", speed: 0.20, turn: 45},
+  {id: "trot",   label: "Trot",   sub: "Tetrapod · fastest",      speed: 0.26, turn: 60},
+  {id: "rubble", label: "Rubble", sub: "High step · slower",      speed: 0.12, turn: 30},
+  {id: "crouch", label: "Crouch", sub: "Low body · slowest",      speed: 0.10, turn: 25},
 ];
 let gait = "walk", estop = false, ws = null;
 const held = new Set();
@@ -129,10 +132,13 @@ $("hold").onclick = () => { held.clear(); paint(); send({type: "hold"}); };
 $("estop").onclick = () => toggleEstop();
 function toggleEstop() { estop = !estop; held.clear(); paint(); send({type: "estop", engaged: estop}); }
 
-const KEYMAP = {w: "1,0,0", s: "-1,0,0", a: "0,1,0", d: "0,-1,0", q: "0,0,1", e: "0,0,-1"};
+const KEYMAP = {w: "1,0,0", arrowup: "1,0,0", s: "-1,0,0", arrowdown: "-1,0,0",
+                a: "0,0,1", arrowleft: "0,0,1", d: "0,0,-1", arrowright: "0,0,-1",
+                q: "0,1,0", e: "0,-1,0"};
 addEventListener("keydown", (e) => {
-  if (e.repeat) return;
   const k = e.key.toLowerCase();
+  if (KEYMAP[k]) e.preventDefault();
+  if (e.repeat) return;
   if (KEYMAP[k]) press(KEYMAP[k]);
   else if (k === " ") { e.preventDefault(); $("hold").onclick(); }
   else if (k === "x") toggleEstop();
@@ -172,7 +178,34 @@ function show(t) {
   ];
   $("tel").innerHTML = rows.map(([a, b]) => `<div class="row"><span>${a}</span><span>${b}</span></div>`).join("");
 }
-drawGaits(); speedLabel(); connect();
+// Gamepad: left stick forward/back + turn, right stick sideways,
+// A/cross = hold, B/circle = e-stop, shoulder buttons change gait.
+let padWas = false, padButtons = [];
+function pollPad() {
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find((g) => g);
+  if (gp) {
+    $("pad").textContent = " Gamepad connected.";
+    const dz = (v) => (Math.abs(v) < 0.15 ? 0 : v);
+    const fwd = -dz(gp.axes[1] || 0), turn = -dz(gp.axes[0] || 0), side = -dz(gp.axes[2] || 0);
+    const pressed = (i) => gp.buttons[i] && gp.buttons[i].pressed;
+    const edge = (i) => pressed(i) && !padButtons[i];
+    if (edge(0)) $("hold").onclick();
+    if (edge(1)) toggleEstop();
+    if (edge(4) || edge(5)) {
+      const i = GAITS.findIndex((x) => x.id === gait);
+      setGait(GAITS[(i + (edge(5) ? 1 : GAITS.length - 1)) % GAITS.length].id);
+    }
+    padButtons = gp.buttons.map((b) => b.pressed);
+    const g = GAITS.find((x) => x.id === gait), k = $("speed").value / 100;
+    const active = fwd || turn || side;
+    if (active && !estop) {
+      send({type: "drive", vx: g.speed * k * fwd, vy: g.speed * k * side, wz: g.turn * k * turn});
+      padWas = true;
+    } else if (padWas) { send({type: "hold"}); padWas = false; }
+  }
+  setTimeout(pollPad, 100);
+}
+drawGaits(); speedLabel(); connect(); pollPad();
 </script>
 </body>
 </html>

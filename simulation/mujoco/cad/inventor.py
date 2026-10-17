@@ -214,3 +214,17 @@ def part_circles(path) -> np.ndarray:
     if not out:
         return np.zeros((0, 7))
     return np.unique(np.round(np.array(out), 5), axis=0)
+
+
+
+def plate_loops(path, axis, value, uv):
+    """Closed outlines of the face lying in the plane coordinate[axis] ==
+    value: [outer outline, hole, hole, ...] as (u, v) arrays, cm. Read from
+    the solid's real edges (straight lines and arcs), so concave outlines
+    and rectangular cut-outs come out exactly."""
+    import sab
+    for _name, blob in segments(path):
+        if b"ASM" in blob and b"point" in blob:
+            edges = sab.plane_edges(blob, axis, value)
+            return sab.loops([e[:, list(uv)] for e in edges])
+    return []
