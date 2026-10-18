@@ -35,6 +35,31 @@ CASE_TAPER = (0.026, 0.009)     # length of taper, inset each side
 CASE_CHAMFER = 0.014            # top-front edge
 CASE_REAR_CHAMFER = 0.003
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _read_stl(path):
+    """(n, 3, 3) triangles from a binary STL."""
+    raw = open(path, "rb").read()
+    n = int.from_bytes(raw[80:84], "little")
+    rec = np.frombuffer(raw[84:84 + n * 50], dtype=[("n", "<f4", 3),
+                                                    ("v", "<f4", (3, 3)),
+                                                    ("a", "<u2")])
+    return rec["v"].astype(float)
+
+
+def _write_stl(path, tris):
+    import struct
+    tris = np.asarray(tris, np.float32)
+    nrm = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0])
+    nrm /= np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-12)
+    rec = np.zeros(len(tris), dtype=[("n", "<f4", 3), ("v", "<f4", (3, 3)),
+                                     ("a", "<u2")])
+    rec["n"], rec["v"] = nrm, tris
+    with open(path, "wb") as fh:
+        fh.write(b"\0" * 80 + struct.pack("<I", len(tris)) + rec.tobytes())
+
+
 def _n(v):
     return f"{v:.6g}"
 
@@ -206,14 +231,35 @@ def build(cad, folder):
                                    CR_T + 0.005), (0.004, 0.011, 0.005),
             CRADLE_BLACK)
 
-    # ---- battery: rounded black pack, label up, as in the photo ----
-    z0 = CR_T
-    bl, bw = BAT_L / 2, BAT_W / 2
-    gap = CR_L / 2 - CR_T - 0.008 - bl            # clear of the stops
-    piece("pack_body", _rounded_box([cx - bl, -bw, z0], [cx + bl, bw, z0 + BAT_H],
-                                    0.007), PACK_BLACK)
-    top = z0 + BAT_H
-    # Rating label on top, inside the four corner screws.
+    # ---- battery: the real pack, from Battery LxT 18V v7.step ----
+    # The STEP (in cad/parts, exported to meshes/battery by cad/step.py)
+    # is in the same frame as the Inventor part, so the CAD placement puts
+    # it exactly where bot.iam does: terminals down into the cradle, the
+    # flat label face up, latch button towards the robot. Lifted onto the
+    # cradle floor.
+    import json
+    R = np.array(bat["frame"]["rot"])
+    P = np.array(bat["frame"]["pos"])
+    src = os.path.join(HERE, "meshes", "battery")
+    out_dir = os.path.join(folder, "..", "meshes", "battery_placed")
+    os.makedirs(out_dir, exist_ok=True)
+    parts = json.load(open(os.path.join(src, "parts.json")))
+    loaded = []
+    for part in parts:
+        tris = _read_stl(os.path.join(src, part["file"])) @ R.T + P
+        loaded.append((part, tris))
+    lift = CR_T - min(t[:, :, 2].min() for _p, t in loaded)
+    for k, (part, tris) in enumerate(loaded):
+        tris = tris + [0.0, 0.0, lift]
+        fn = f"placed{k}.stl"
+        _write_stl(os.path.join(out_dir, fn), tris)
+        assets.append(f'    <mesh name="m_battery{k}" '
+                      f'file="meshes/battery_placed/{fn}" inertia="shell"/>')
+        geoms.append(_vis(f'name="battery{k}" type="mesh" mesh="m_battery{k}" '
+                          f'rgba="{_rgba(part["rgb"])}" material="satin"'))
+    allv = np.vstack([t.reshape(-1, 3) for _p, t in loaded]) + [0, 0, lift]
+    top, bw = allv[:, 2].max(), allv[:, 1].max()
+    # Printed rating label on the flat face, and the rating on one side.
     label_tex(os.path.join(folder, "bat_label.png"))
     side_tex(os.path.join(folder, "bat_side.png"))
     assets += [
@@ -222,33 +268,21 @@ def build(cad, folder):
         '    <texture name="bat_side" type="2d" file="textures/bat_side.png"/>',
         '    <material name="bat_side" texture="bat_side" specular="0.1"/>']
     geoms.append(_vis(
-        f'name="pack_label" type="box" size="0.040 0.026 0.0002" '
+        f'name="pack_label" type="box" size="0.038 0.025 0.0002" '
         f'pos="{_n(cx)} 0 {_n(top + 0.0002)}" material="bat_label"'))
-    for i, (dx, dy) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
-        geoms.append(_vis(
-            f'name="pack_screw{i}" type="cylinder" size="0.0022 0.0004" '
-            f'pos="{_n(cx + dx * (bl - 0.008))} {_n(dy * (bw - 0.007))} '
-            f'{_n(top + 0.0003)}" rgba="0.03 0.03 0.03 1"'))
-    # Rating on the logo side (no brand mark); a plain slot on the other.
     geoms.append(_vis(
-        f'name="pack_side_l" type="box" size="0.040 0.0125 0.0002" '
-        f'pos="{_n(cx)} {_n(bw + 0.0003)} {_n(z0 + BAT_H * 0.42)}" '
+        f'name="pack_side_l" type="box" size="0.036 0.0110 0.0002" '
+        f'pos="{_n(cx)} {_n(bw + 0.0003)} {_n(top - 0.022)}" '
         f'xyaxes="-1 0 0 0 0 1" material="bat_side"'))
-    geoms.append(_vis(
-        f'name="pack_slot_r" type="box" size="0.030 0.0003 0.0018" '
-        f'pos="{_n(cx)} {_n(-bw - 0.0001)} {_n(z0 + BAT_H * 0.55)}" '
-        f'rgba="0.02 0.02 0.02 1"'))
-    # Slide rails showing on both ends.
-    for sx, tag in ((-1, "rear"), (1, "front")):
-        box(f"pack_rail_{tag}", (cx + sx * (bl + 0.0005), 0, z0 + 0.010),
-            (0.0008, 0.020, 0.006), (0.04, 0.04, 0.045))
-    del gap
 
     # The plate's battery tab carried on under the cradle to its back end.
     tab_end = -0.197
     if x0 < tab_end:
-        box("plate_tab_ext", ((x0 + tab_end + 0.002) / 2, 0, -0.0025),
-            ((tab_end + 0.002 - x0) / 2, 0.0335, 0.0025), DARK)
+        # Overlaps the real tab by 8 mm and sits 0.2 mm lower, so its
+        # underside runs on from the tab's without a seam.
+        x1e = tab_end + 0.008
+        box("plate_tab_ext", ((x0 + x1e) / 2, 0, -0.0026),
+            ((x1e - x0) / 2, 0.0335, 0.0026), DARK)
     return assets, geoms
 
 

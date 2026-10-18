@@ -3,3 +3,4 @@ __pycache__/
 spider_*.xml
 .env_*.xml
 runs/
+meshes/battery_placed/
