@@ -84,7 +84,7 @@ MIN_LEG_GAP = 0.004            # closest neighbouring legs may come
 # Colours, matched to Ronan's renders (MuJoCo lights brighter than
 # Inventor, so these sit a shade darker than the render looks).
 COLOURS = {
-    "body": "0.46 0.47 0.49 1",
+    "body": "0.17 0.17 0.18 1",
     "Battery LxT 18V v7": "0.17 0.17 0.18 1",
     "9imod 55kg": "0.21 0.21 0.22 1",
     "Servo Bracket - U Shaped bis": "0.17 0.17 0.18 1",

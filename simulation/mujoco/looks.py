@@ -34,13 +34,13 @@ FACE = {
     "9imod 55kg": (88, 89, 93),
     "Multi Purpose Bracket": (46, 47, 49),
     "Servo Bracket - U Shaped bis": (44, 45, 47),
-    "body": (104, 106, 109),
+    "body": (44, 45, 47),          # same dark finish as the leg brackets
 }
 LINE = {                         # the light edge lines
     "9imod 55kg": (205, 207, 210),
     "Multi Purpose Bracket": (128, 130, 134),
     "Servo Bracket - U Shaped bis": (124, 126, 130),
-    "body": (190, 192, 195),
+    "body": (124, 126, 130),
 }
 HOLE = (16, 16, 17)
 TEXT = (236, 237, 238)
