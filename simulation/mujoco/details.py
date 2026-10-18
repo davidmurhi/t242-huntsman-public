@@ -23,6 +23,8 @@ import numpy as np
 BATTERY = (0.075, 0.075, 0.08)   # black, like the front case
 CASE_BLACK = (0.075, 0.075, 0.08)
 RAILS = 0.0165                   # m, battery slide rails below the housing
+MOUNT_MARGIN = 0.003             # m, mount stands this far outside the battery
+DARK = (0.173, 0.176, 0.184)     # the legs' and plate's finish
 
 # --------------------------------------------------------------------
 # Payload case (case2), from the renders: front end narrowing in plan
@@ -94,15 +96,28 @@ def build(cad, folder):
     os.makedirs(folder, exist_ok=True)
     bat = next(p for p in cad["body"] if p["part"] == "Battery LxT 18V v7")
     v = np.array(bat["vertices"])
-    # Its slide rails (the narrow bottom 16 mm) went into the mount, which
-    # is not drawn; without it the housing would float above the plate.
-    # Draw the housing only, resting on the plate top (z = 0).
-    rails = v[:, 2].min() + RAILS
-    body = _slab(v, rails, v[:, 2].max())
-    body[:, 2] -= rails
-    assets = [_mesh("m_bat_look", body)]
+    lo, hi = v.min(0), v.max(0)
+    rails = lo[2] + RAILS                  # top of the slide rails
+    # Housing: the battery above its rails, where the CAD puts it.
+    assets = [_mesh("m_bat_look", _slab(v, rails, hi[2]))]
     geoms = [_vis(f'name="battery_look" type="mesh" mesh="m_bat_look" '
                   f'rgba="{_rgba(BATTERY)}" material="satin"')]
+    # Mount: the block the battery slides into, as in the design, in the
+    # legs' dark finish, from the plate up to the housing.
+    m_lo = [lo[0] - MOUNT_MARGIN, lo[1] - MOUNT_MARGIN, 0.0]
+    m_hi = [hi[0] + MOUNT_MARGIN, hi[1] + MOUNT_MARGIN, rails]
+    assets.append(_mesh("m_bat_mount", _rounded_box(m_lo, m_hi, 0.002)))
+    geoms.append(_vis(f'name="battery_mount" type="mesh" mesh="m_bat_mount" '
+                      f'rgba="{_rgba(DARK)}" material="satin"'))
+    # The plate's battery tab carried on under the mount to its back end,
+    # so nothing hangs off the end of the base.
+    tab_end = -0.197                       # where body.ipt's tab stops
+    if m_lo[0] < tab_end:
+        x0, x1 = m_lo[0], tab_end + 0.002
+        geoms.append(_vis(
+            f'name="plate_tab_ext" type="box" size="{_n((x1 - x0) / 2)} '
+            f'0.0335 0.0025" pos="{_n((x0 + x1) / 2)} 0 -0.0025" '
+            f'rgba="{_rgba(DARK)}" material="satin"'))
     return assets, geoms
 
 
