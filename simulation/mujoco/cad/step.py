@@ -6,9 +6,9 @@ part or assembly exported from Inventor into triangle meshes, with each
 solid's colour and its placement in the assembly.
 
 Planar and cylindrical faces are triangulated exactly from their edge
-loops (straight lines, circles, ellipses and B-spline edges); the few
-other surface types (torus, B-spline) are flattened onto their best-fit
-plane, which is close enough for small fillets.
+loops (straight lines, circles, ellipses and B-spline edges); tori,
+cones and B-spline surfaces (plain or rational) are triangulated in their
+own (u, v) parameters and evaluated back onto the true surface.
 """
 
 from __future__ import annotations
@@ -73,6 +73,63 @@ def parse(path):
     return ents
 
 
+def _complex(body):
+    """Sub-records of a complex entity: {NAME: args}."""
+    inner = body.strip()[1:-1]
+    out = {}
+    for m in re.finditer(r"([A-Z0-9_]+)\s*\(", inner):
+        if m.start() and inner[m.start() - 1] not in " )":
+            continue
+        i, depth = m.end(), 1
+        while depth:
+            depth += {"(": 1, ")": -1}.get(inner[i], 0)
+            i += 1
+        args = inner[m.end():i - 1]
+        out.setdefault(m.group(1), [_val(t) for t in _split(args)] if args.strip() else [])
+    return out
+
+
+def _knots(mults, knots):
+    return np.repeat(np.array(knots, float), np.array(mults, int))
+
+
+def _basis(x, t, k):
+    from scipy.interpolate import BSpline
+    x = np.clip(np.asarray(x, float), t[k], t[-k - 1])
+    return BSpline.design_matrix(x, t, k).toarray()
+
+
+class _Nurbs:
+    """A B-spline (optionally rational) surface S(u, v)."""
+
+    def __init__(self, du, dv, P, tu, tv, W=None):
+        self.du, self.dv, self.P, self.tu, self.tv = du, dv, P, tu, tv
+        self.W = np.ones(P.shape[:2]) if W is None else W
+        self.ur = (tu[du], tu[-du - 1])
+        self.vr = (tv[dv], tv[-dv - 1])
+
+    def grid(self, us, vs):
+        Nu, Nv = _basis(us, self.tu, self.du), _basis(vs, self.tv, self.dv)
+        w = Nu @ self.W @ Nv.T
+        xyz = np.einsum("ai,ijc,bj->abc", Nu, self.P * self.W[..., None], Nv)
+        return xyz / w[..., None]
+
+    def at(self, uv):
+        Nu = _basis(uv[:, 0], self.tu, self.du)
+        Nv = _basis(uv[:, 1], self.tv, self.dv)
+        w = np.einsum("ai,ij,aj->a", Nu, self.W, Nv)
+        xyz = np.einsum("ai,ijc,aj->ac", Nu, self.P * self.W[..., None], Nv)
+        return xyz / w[:, None]
+
+
+def _nurbs_curve(deg, P, t, W=None, n=None):
+    W = np.ones(len(P)) if W is None else np.asarray(W, float)
+    n = n or max(8, 6 * (len(P) - 1))
+    xs = np.linspace(t[deg], t[-deg - 1], n)
+    N = _basis(xs, t, deg)
+    return (N @ (P * W[:, None])) / (N @ W)[:, None]
+
+
 # ---------------------------------------------------------------- geometry
 
 
@@ -127,12 +184,24 @@ class Step:
                     int(abs(t1 - t0) / 0.2) + 1)
             ts = np.linspace(t0, t1, n)
             return o + np.outer(r1 * np.cos(ts), x) + np.outer(r2 * np.sin(ts), y)
-        if ctype == "B_SPLINE_CURVE_WITH_KNOTS":
-            cps = np.array([self.pt(c) for c in ca[2]])
+        if ctype in ("B_SPLINE_CURVE_WITH_KNOTS", "COMPLEX"):
+            if ctype == "COMPLEX":
+                c = _complex(ca)
+                if "B_SPLINE_CURVE" not in c:
+                    return np.array([v0, v1])
+                deg, cp = c["B_SPLINE_CURVE"][0], c["B_SPLINE_CURVE"][1]
+                kn = c["B_SPLINE_CURVE_WITH_KNOTS"]
+                t = _knots(kn[0], kn[1])
+                W = c.get("RATIONAL_B_SPLINE_CURVE", [None])[0]
+            else:
+                deg, cp = int(ca[1]), ca[2]
+                t, W = _knots(ca[6], ca[7]), None
+            pts = _nurbs_curve(int(deg), np.array([self.pt(i) for i in cp]),
+                               t, W)
             if not same:
-                cps = cps[::-1]
-            cps[0], cps[-1] = v0, v1
-            return cps
+                pts = pts[::-1]
+            pts[0], pts[-1] = v0, v1
+            return pts
         return np.array([v0, v1])                       # LINE and the rest
 
     def loop_points(self, lid):
@@ -185,16 +254,8 @@ class Step:
                 d = (P - o) - np.outer((P - o) @ z, z)
                 return d / np.linalg.norm(d, axis=1, keepdims=True)
             grid = 1.5
-        else:                                           # flatten (fillets)
-            allp = np.vstack(loops)
-            c = allp.mean(0)
-            _u, _s, vt = np.linalg.svd(allp - c)
-            x, y, z = vt[0], vt[1], vt[2]
-            o = c
-            to2 = lambda P: np.stack([(P - o) @ x, (P - o) @ y], 1)  # noqa
-            to3 = lambda Q: o + np.outer(Q[:, 0], x) + np.outer(Q[:, 1], y)  # noqa
-            normal = lambda P: np.tile(z, (len(P), 1))           # noqa
-            grid = None
+        else:
+            return self._param_face(loops, outer or 0, stype, sa, same)
 
         loops2 = [to2(L) for L in loops]
         if stype == "CYLINDRICAL_SURFACE" and len(loops2) > 1:
@@ -217,6 +278,118 @@ class Step:
             flip = np.einsum("ij,ij->i", n, want) < 0
             P[flip] = P[flip][:, [0, 2, 1]]
         return P
+
+    def _surface(self, stype, sa):
+        """(eval(uv)->xyz, invert(xyz)->uv, u-period or None, outward(xyz, uv))."""
+        if stype == "TOROIDAL_SURFACE":
+            o, x, y, z = self.axis(sa[1])
+            R, r = sa[2], sa[3]
+
+            def ev(Q):
+                u, v = Q[:, 0], Q[:, 1]
+                rad = R + r * np.cos(v)
+                return (o + np.outer(rad * np.cos(u), x)
+                        + np.outer(rad * np.sin(u), y) + np.outer(r * np.sin(v), z))
+
+            def inv(P):
+                d = P - o
+                u = np.arctan2(d @ y, d @ x)
+                v = np.arctan2(d @ z, np.hypot(d @ x, d @ y) - R)
+                return np.stack([u, v], 1)
+            return ev, inv, (2 * np.pi, 2 * np.pi), (R + r, r)
+        if stype == "CONICAL_SURFACE":
+            o, x, y, z = self.axis(sa[1])
+            r0, ta = sa[2], np.tan(sa[3])
+
+            def ev(Q):
+                u, v = Q[:, 0], Q[:, 1]
+                rad = r0 + v * ta
+                return (o + np.outer(rad * np.cos(u), x)
+                        + np.outer(rad * np.sin(u), y) + np.outer(v, z))
+
+            def inv(P):
+                d = P - o
+                return np.stack([np.arctan2(d @ y, d @ x), d @ z], 1)
+            return ev, inv, (2 * np.pi, None), (r0, 1.0)
+        # B-spline, plain or rational (complex entity)
+        if stype == "COMPLEX":
+            c = _complex(sa)
+            du, dv, cp = c["B_SPLINE_SURFACE"][:3]
+            kn = c["B_SPLINE_SURFACE_WITH_KNOTS"]
+            tu, tv = _knots(kn[0], kn[2]), _knots(kn[1], kn[3])
+            W = c.get("RATIONAL_B_SPLINE_SURFACE", [None])[0]
+            W = None if W is None else np.array(W, float)
+        else:
+            du, dv, cp = sa[1], sa[2], sa[3]
+            tu, tv = _knots(sa[8], sa[10]), _knots(sa[9], sa[11])
+            W = None
+        P = np.array([[self.pt(i) for i in row] for row in cp])
+        S = _Nurbs(int(du), int(dv), P, tu, tv, W)
+        us = np.linspace(*S.ur, 120)
+        vs = np.linspace(*S.vr, 120)
+        G = S.grid(us, vs)
+        from scipy.spatial import cKDTree
+        tree = cKDTree(G.reshape(-1, 3))
+        UV = np.stack(np.meshgrid(us, vs, indexing="ij"), -1).reshape(-1, 2)
+        span_u = np.linalg.norm(np.diff(G, axis=0), axis=2).sum(0).max()
+        span_v = np.linalg.norm(np.diff(G, axis=1), axis=2).sum(1).max()
+        lu, lv = S.ur[1] - S.ur[0], S.vr[1] - S.vr[0]
+
+        def inv(Pts):
+            uv = UV[tree.query(Pts)[1]].copy()
+            h = 1e-6
+            for _ in range(6):                      # Gauss-Newton polish
+                f = S.at(uv)
+                Su = (S.at(uv + [h * lu, 0]) - f) / (h * lu)
+                Sv = (S.at(uv + [0, h * lv]) - f) / (h * lv)
+                r = Pts - f
+                a11, a12, a22 = (Su * Su).sum(1), (Su * Sv).sum(1), (Sv * Sv).sum(1)
+                b1, b2 = (Su * r).sum(1), (Sv * r).sum(1)
+                det = a11 * a22 - a12 ** 2 + 1e-18
+                uv[:, 0] += (a22 * b1 - a12 * b2) / det
+                uv[:, 1] += (a11 * b2 - a12 * b1) / det
+                uv[:, 0] = np.clip(uv[:, 0], *S.ur)
+                uv[:, 1] = np.clip(uv[:, 1], *S.vr)
+            return uv
+        return S.at, inv, (None, None), (span_u / lu, span_v / lv)
+
+    def _param_face(self, loops, outer, stype, sa, same):
+        ev, inv, period, scale = self._surface(stype, sa)
+        su, sv = scale
+        loops2 = []
+        for L in loops:
+            dense = []
+            ring = np.vstack([L, L[:1]])
+            for p, q in zip(ring[:-1], ring[1:]):
+                n = max(1, int(np.linalg.norm(q - p) / 0.8))
+                dense.append(p + np.outer(np.linspace(0, 1, n, endpoint=False), q - p))
+            uv = inv(np.vstack(dense))
+            for k in (0, 1):
+                if period[k]:
+                    uv[:, k] = np.unwrap(uv[:, k], period=period[k])
+            loops2.append(uv * [su, sv])
+        # keep inner loops on the outer loop's wrap
+        for k in (0, 1):
+            if period[k]:
+                ref = loops2[outer][:, k].mean()
+                P = period[k] * (su, sv)[k]
+                for L in loops2:
+                    L[:, k] += np.round((ref - L[:, k].mean()) / P) * P
+        tris2 = _triangulate(loops2, outer, 0.8)
+        if not len(tris2):
+            return np.zeros((0, 3, 3))
+        T = ev((tris2.reshape(-1, 2) / [su, sv])).reshape(-1, 3, 3)
+        # orient by the surface normal Su x Sv (STEP's convention)
+        c = tris2.mean(1) / [su, sv]
+        h = 1e-5
+        f = ev(c)
+        nrm = np.cross(ev(c + [h, 0]) - f, ev(c + [0, h]) - f)
+        if not same:
+            nrm = -nrm
+        n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+        flip = np.einsum("ij,ij->i", n, nrm) < 0
+        T[flip] = T[flip][:, [0, 2, 1]]
+        return T
 
     # ---- solids and assembly
     def solids(self):

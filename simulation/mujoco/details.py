@@ -245,13 +245,6 @@ def build(cad, folder):
                       f'file="meshes/battery_placed/{fn}" inertia="shell"/>')
         geoms.append(_vis(f'name="battery{k}" type="mesh" mesh="m_battery{k}" '
                           f'rgba="{_rgba(part["rgb"])}" material="satin"'))
-    # Solid dark core inside the case, so the side grip recesses (whose
-    # curved backs the STEP does not carry) read as closed, not see-through.
-    zc = lift + loaded[0][1][:, :, 2].min()          # case bottom
-    box("pack_core", (-0.1585, 0, zc + 0.0265), (0.046, 0.033, 0.0215),
-        PACK_BLACK)
-    box("pack_core_rail", (-0.1685, 0, zc + 0.0075), (0.030, 0.033, 0.006),
-        PACK_BLACK)
     allv = np.vstack([t.reshape(-1, 3) for _p, t in loaded]) + [0, 0, lift]
     top, bw = allv[:, 2].max(), allv[:, 1].max()
     # Printed rating label on the flat face, and the rating on one side.
