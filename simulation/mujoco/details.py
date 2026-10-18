@@ -26,6 +26,8 @@ RAILS = 0.0165                   # m, battery slide rails below the housing
 MOUNT_MARGIN = 0.003             # m, mount stands this far outside the battery
 DARK = (0.173, 0.176, 0.184)     # the legs' and plate's finish
 LATCH = (0.24, 0.24, 0.25)
+LEAD_RED = (0.70, 0.08, 0.06)
+LEAD_BLACK = (0.04, 0.04, 0.04)
 BEZEL = (0.05, 0.05, 0.055)
 ROCKER = (0.12, 0.12, 0.13)
 
@@ -112,34 +114,74 @@ def build(cad, folder):
     assets.append(_mesh("m_bat_mount", _rounded_box(m_lo, m_hi, 0.002)))
     geoms.append(_vis(f'name="battery_mount" type="mesh" mesh="m_bat_mount" '
                       f'rgba="{_rgba(DARK)}" material="satin"'))
-    # Adapter details, as on the real robot: the side rails that hold the
-    # battery's slide, the release latch at the back, and the on/off
-    # switch on the front.
+    # Adapter dock details, after the common Makita 18V battery docks:
+    # T-rails along both sides that the battery's slide locks into, a
+    # back wall at the terminal end with the power leads coming out of
+    # it, the latch notch at the open end, and the on/off rocker switch
+    # on the front.
     length = m_hi[0] - m_lo[0]
     cx = (m_lo[0] + m_hi[0]) / 2
     for side, sy in (("l", 1), ("r", -1)):
-        geoms.append(_vis(
-            f'name="dock_rail_{side}" type="box" size="{_n(length / 2 - 0.004)} '
-            f'0.0016 0.0025" pos="{_n(cx)} {_n(sy * (hi[1] + 0.0016))} '
-            f'{_n(rails + 0.0022)}" rgba="{_rgba(DARK)}" material="satin"'))
+        geoms.append(_vis(                                   # rail upright
+            f'name="dock_rail_{side}" type="box" size="{_n(length / 2 - 0.006)} '
+            f'0.0020 0.0045" pos="{_n(cx + 0.002)} '
+            f'{_n(sy * (hi[1] + 0.0010))} {_n(rails + 0.0040)}" '
+            f'rgba="{_rgba(DARK)}" material="satin"'))
+        geoms.append(_vis(                                   # rail lip
+            f'name="dock_lip_{side}" type="box" size="{_n(length / 2 - 0.006)} '
+            f'0.0032 0.0012" pos="{_n(cx + 0.002)} '
+            f'{_n(sy * (hi[1] - 0.0010))} {_n(rails + 0.0080)}" '
+            f'rgba="{_rgba(DARK)}" material="satin"'))
+    # Back wall at the battery's tail (its terminal end), with the leads.
+    wall_x = m_lo[0] + 0.004
     geoms.append(_vis(
-        f'name="dock_latch" type="box" size="0.0035 0.012 0.004" '
-        f'pos="{_n(m_lo[0] - 0.002)} 0 {_n(rails - 0.004)}" '
-        f'rgba="{_rgba(LATCH)}" material="satin"'))
+        f'name="dock_wall" type="box" size="0.004 {_n(hi[1] + 0.003)} 0.010" '
+        f'pos="{_n(wall_x)} 0 {_n(rails + 0.006)}" rgba="{_rgba(DARK)}" '
+        f'material="satin"'))
+    for k, (dy, col) in enumerate(((0.008, LEAD_RED), (-0.008, LEAD_BLACK))):
+        geoms.append(_vis(
+            f'name="dock_lead{k}" type="capsule" size="0.0028 0.010" '
+            f'pos="{_n(wall_x - 0.006)} {_n(dy)} {_n(rails + 0.004)}" '
+            f'euler="0 70 0" rgba="{_rgba(col)}"'))
+    # Latch notch at the open (front) end of the slide.
+    geoms.append(_vis(
+        f'name="dock_notch" type="box" size="0.006 0.012 0.0004" '
+        f'pos="{_n(m_hi[0] - 0.010)} 0 {_n(rails + 0.0004)}" '
+        f'rgba="0.06 0.06 0.065 1"'))
+    # On/off rocker switch on the front face.
     front = m_hi[0]
     zc = rails / 2
     geoms.append(_vis(
-        f'name="switch_bezel" type="box" size="0.0012 0.0075 0.0050" '
-        f'pos="{_n(front + 0.0012)} 0 {_n(zc)}" rgba="{_rgba(BEZEL)}" '
+        f'name="switch_bezel" type="box" size="0.0015 0.0095 0.0062" '
+        f'pos="{_n(front + 0.0015)} 0 {_n(zc)}" rgba="{_rgba(BEZEL)}" '
         f'material="satin"'))
     geoms.append(_vis(
-        f'name="switch_rocker" type="box" size="0.0012 0.0058 0.0036" '
-        f'pos="{_n(front + 0.0028)} 0 {_n(zc)}" euler="0 12 0" '
+        f'name="switch_rocker" type="box" size="0.0014 0.0078 0.0048" '
+        f'pos="{_n(front + 0.0033)} 0 {_n(zc)}" euler="0 12 0" '
         f'rgba="{_rgba(ROCKER)}" material="satin"'))
     geoms.append(_vis(
-        f'name="switch_mark" type="box" size="0.0002 0.0006 0.0018" '
-        f'pos="{_n(front + 0.0042)} 0 {_n(zc + 0.0006)}" euler="0 12 0" '
-        f'rgba="0.9 0.9 0.9 1"'))
+        f'name="switch_mark" type="box" size="0.0002 0.0007 0.0024" '
+        f'pos="{_n(front + 0.0049)} 0 {_n(zc + 0.0008)}" euler="0 12 0" '
+        f'rgba="0.92 0.92 0.92 1"'))
+
+    # Battery markings: the white rating label on its top face and the
+    # voltage/capacity line on both sides, as on a BL1850B (no brand mark).
+    label_tex(os.path.join(folder, "bat_label.png"))
+    side_tex(os.path.join(folder, "bat_side.png"))
+    assets += [
+        '    <texture name="bat_label" type="2d" file="textures/bat_label.png"/>',
+        '    <material name="bat_label" texture="bat_label" specular="0.1"/>',
+        '    <texture name="bat_side" type="2d" file="textures/bat_side.png"/>',
+        '    <material name="bat_side" texture="bat_side" specular="0.1"/>']
+    geoms.append(_vis(
+        f'name="bat_label" type="box" size="0.030 0.026 0.0002" '
+        f'pos="-0.1580 0 {_n(hi[2] + 0.0002)}" material="bat_label"'))
+    for side, sy in (("l", 1), ("r", -1)):
+        x_axis = "-1 0 0" if sy > 0 else "1 0 0"
+        geoms.append(_vis(
+            f'name="bat_side_{side}" type="box" size="0.031 0.0052 0.0002" '
+            f'pos="-0.1610 {_n(sy * (hi[1] + 0.0004))} 0.0470" '
+            f'xyaxes="{x_axis} 0 0 1" material="bat_side"'))
     # The plate's battery tab carried on under the mount to its back end,
     # so nothing hangs off the end of the base.
     tab_end = -0.197                       # where body.ipt's tab stops
@@ -150,6 +192,48 @@ def build(cad, folder):
             f'0.0335 0.0025" pos="{_n((x0 + x1) / 2)} 0 -0.0025" '
             f'rgba="{_rgba(DARK)}" material="satin"'))
     return assets, geoms
+
+
+def label_tex(path):
+    """The battery's rating label: white, ruled, with a few blocks of
+    small print and the recycling marks as simple shapes."""
+    from PIL import Image, ImageDraw
+    W, H = 600, 520
+    img = Image.new("RGB", (W, H), (226, 226, 222))
+    d = ImageDraw.Draw(img)
+    d.rectangle([4, 4, W - 5, H - 5], outline=(60, 60, 60), width=4)
+    for y in range(40, 200, 22):                     # small print
+        d.line([30, y, W - 30, y], fill=(120, 120, 120), width=6)
+    for i, x in enumerate((40, 180, 320, 460)):        # symbols
+        d.ellipse([x, 260, x + 100, 360], outline=(40, 40, 40), width=6)
+    d.rectangle([40, 400, W - 40, 470], outline=(40, 40, 40), width=5)
+    img.save(path)
+
+
+def side_tex(path):
+    """'18V  5.0Ah  LITHIUM-ION' in white on black, the battery's side."""
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 1000, 160
+    TEXT = "18V   5.0Ah   LITHIUM-ION"
+    img = Image.new("RGB", (W, H), (19, 19, 20))
+    d = ImageDraw.Draw(img)
+    font = None
+    for f in ("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+              "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+              "C:/Windows/Fonts/arialbd.ttf"):
+        if os.path.exists(f):
+            size = 96
+            while size > 20:                          # fit it with margins
+                font = ImageFont.truetype(f, size)
+                box = d.textbbox((0, 0), TEXT, font=font)
+                if box[2] - box[0] <= W * 0.9 and box[3] - box[1] <= H * 0.7:
+                    break
+                size -= 4
+            break
+    font = font or ImageFont.load_default()
+    d.text((W / 2, H / 2), TEXT, fill=(235, 235, 235), font=font,
+           anchor="mm")
+    img.save(path)
 
 
 def case_and_sled(size, centre_x, folder):
