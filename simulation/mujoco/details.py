@@ -137,10 +137,9 @@ def speckle_tex(path, size=512, seed=7):
 # --------------------------------------------------------------------
 BAT_L, BAT_W, BAT_H = 0.1156, 0.0746, 0.0678
 BODY_H = 0.048                  # main body; the rail block sits on top
-CR_L, CR_W, CR_H, CR_T = 0.125, 0.080, 0.040, 0.004
-CR_LOW = 0.020                  # height of the cut-down middle of the walls
-RED = (0.78, 0.07, 0.07)
-PACK_BLACK = (0.07, 0.07, 0.075)
+CR_L, CR_W, CR_H, CR_T = 0.125, 0.082, 0.040, 0.004
+CR_LOW = 0.014                  # height of the cut-down middle of the walls
+PACK_BLACK = (0.09, 0.09, 0.095)
 CRADLE_BLACK = (0.09, 0.09, 0.095)
 
 
@@ -201,63 +200,49 @@ def build(cad, folder):
             (CR_L / 2 - post - ramp + 0.0005, CR_T / 2, CR_LOW / 2),
             CRADLE_BLACK)
 
-    # ---- battery, resting on the cradle floor ----
+    # Locating blocks inside the short ends, as in the cradle drawing.
+    for sx, tag in ((-1, "rear"), (1, "front")):
+        box(f"cradle_stop_{tag}", (cx + sx * (CR_L / 2 - CR_T - 0.004), 0,
+                                   CR_T + 0.005), (0.004, 0.011, 0.005),
+            CRADLE_BLACK)
+
+    # ---- battery: rounded black pack, label up, as in the photo ----
     z0 = CR_T
     bl, bw = BAT_L / 2, BAT_W / 2
-    gauge = -1                                     # gauge end faces the back
-    piece("pack_body", _rounded_box([cx - bl, -bw, z0], [cx + bl, bw, z0 + BODY_H],
-                                    0.005), PACK_BLACK)
-    # Rail block on top, from behind the red hood to the far end.
-    rb0 = cx - bl + 0.030 if gauge < 0 else cx - bl + 0.004
-    rb1 = cx + bl - 0.004 if gauge < 0 else cx + bl - 0.030
-    piece("pack_rails", _rounded_box([rb0, -0.026, z0 + BODY_H - 0.002],
-                                     [rb1, 0.026, z0 + BAT_H], 0.003),
-          PACK_BLACK)
-    # Red hood over the gauge end, sloping up to the rail block.
-    xe = cx + gauge * bl
-    hood = np.vstack([
-        _box_pts([min(xe, xe - gauge * 0.034), -bw, z0 + BODY_H - 0.010],
-                 [max(xe, xe - gauge * 0.034), bw, z0 + BODY_H - 0.009]),
-        _box_pts([min(xe - gauge * 0.006, xe - gauge * 0.030), -0.030,
-                  z0 + BAT_H - 0.002],
-                 [max(xe - gauge * 0.006, xe - gauge * 0.030), 0.030,
-                  z0 + BAT_H - 0.001]),
-        _box_pts([min(xe - gauge * 0.001, xe - gauge * 0.034), -bw + 0.002,
-                  z0 + BODY_H - 0.009],
-                 [max(xe - gauge * 0.001, xe - gauge * 0.034), bw - 0.002,
-                  z0 + BODY_H + 0.004])])
-    piece("pack_hood", hood, RED)
-    # Charge gauge: four bars and a button on the hood's end face.
-    for k in range(4):
-        box(f"pack_led{k}", (xe + gauge * 0.0006, -0.016 + 0.0075 * k,
-                             z0 + BODY_H - 0.002),
-            (0.0006, 0.0028, 0.0016), (0.18, 0.18, 0.19))
-    geoms.append(_vis(
-        f'name="pack_button" type="cylinder" size="0.0042 0.0006" '
-        f'pos="{_vec((xe + gauge * 0.0006, 0.019, z0 + BODY_H - 0.002))}" '
-        f'zaxis="{gauge} 0 0" rgba="0.22 0.22 0.23 1" material="satin"'))
-    # Contact slots on top of the rail block and the slide grooves.
+    gap = CR_L / 2 - CR_T - 0.008 - bl            # clear of the stops
+    piece("pack_body", _rounded_box([cx - bl, -bw, z0], [cx + bl, bw, z0 + BAT_H],
+                                    0.007), PACK_BLACK)
     top = z0 + BAT_H
-    for k in range(6):
-        box(f"pack_slot{k}", (rb0 + 0.010 if gauge < 0 else rb1 - 0.010,
-                              -0.0125 + 0.005 * k, top + 0.0002),
-            (0.006, 0.0011, 0.0003), (0.02, 0.02, 0.02))
-    for sy in (-1, 1):
-        box(f"pack_groove{'l' if sy > 0 else 'r'}",
-            ((rb0 + rb1) / 2, sy * 0.0262, top - 0.008),
-            ((rb1 - rb0) / 2 - 0.004, 0.0004, 0.0018), (0.02, 0.02, 0.02))
-    # Side panels: the rating on both sides (no brand marks).
+    # Rating label on top, inside the four corner screws.
+    label_tex(os.path.join(folder, "bat_label.png"))
     side_tex(os.path.join(folder, "bat_side.png"))
     assets += [
+        '    <texture name="bat_label" type="2d" file="textures/bat_label.png"/>',
+        '    <material name="bat_label" texture="bat_label" specular="0.1"/>',
         '    <texture name="bat_side" type="2d" file="textures/bat_side.png"/>',
         '    <material name="bat_side" texture="bat_side" specular="0.1"/>']
-    for sy, tag in ((1, "l"), (-1, "r")):
-        x_axis = "-1 0 0" if sy > 0 else "1 0 0"
+    geoms.append(_vis(
+        f'name="pack_label" type="box" size="0.040 0.026 0.0002" '
+        f'pos="{_n(cx)} 0 {_n(top + 0.0002)}" material="bat_label"'))
+    for i, (dx, dy) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
         geoms.append(_vis(
-            f'name="pack_side_{tag}" type="box" size="0.034 0.0085 0.0002" '
-            f'pos="{_n(cx + 0.006)} {_n(sy * (bw + 0.0003))} '
-            f'{_n(z0 + BODY_H * 0.55)}" xyaxes="{x_axis} 0 0 1" '
-            f'material="bat_side"'))
+            f'name="pack_screw{i}" type="cylinder" size="0.0022 0.0004" '
+            f'pos="{_n(cx + dx * (bl - 0.008))} {_n(dy * (bw - 0.007))} '
+            f'{_n(top + 0.0003)}" rgba="0.03 0.03 0.03 1"'))
+    # Rating on the logo side (no brand mark); a plain slot on the other.
+    geoms.append(_vis(
+        f'name="pack_side_l" type="box" size="0.040 0.0125 0.0002" '
+        f'pos="{_n(cx)} {_n(bw + 0.0003)} {_n(z0 + BAT_H * 0.42)}" '
+        f'xyaxes="-1 0 0 0 0 1" material="bat_side"'))
+    geoms.append(_vis(
+        f'name="pack_slot_r" type="box" size="0.030 0.0003 0.0018" '
+        f'pos="{_n(cx)} {_n(-bw - 0.0001)} {_n(z0 + BAT_H * 0.55)}" '
+        f'rgba="0.02 0.02 0.02 1"'))
+    # Slide rails showing on both ends.
+    for sx, tag in ((-1, "rear"), (1, "front")):
+        box(f"pack_rail_{tag}", (cx + sx * (bl + 0.0005), 0, z0 + 0.010),
+            (0.0008, 0.020, 0.006), (0.04, 0.04, 0.045))
+    del gap
 
     # The plate's battery tab carried on under the cradle to its back end.
     tab_end = -0.197
@@ -267,11 +252,35 @@ def build(cad, folder):
     return assets, geoms
 
 
+def label_tex(path):
+    """The pack's rating label: white sticker, title line, three symbol
+    boxes and lines of small print (no brand mark)."""
+    from PIL import Image, ImageDraw
+    W, H = 640, 420
+    img = Image.new("RGB", (W, H), (232, 232, 228))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([3, 3, W - 4, H - 4], 14, outline=(70, 70, 70), width=4)
+    d.rectangle([24, 22, 300, 52], fill=(40, 40, 40))           # title bar
+    for y in (70, 88):
+        d.line([24, y, W - 24, y], fill=(110, 110, 110), width=6)
+    for k in range(3):                                         # symbol boxes
+        x = 24 + k * 200
+        d.rectangle([x, 110, x + 180, 280], outline=(50, 50, 50), width=4)
+    d.ellipse([54, 135, 174, 255], outline=(200, 30, 30), width=8)
+    d.line([70, 240, 160, 150], fill=(200, 30, 30), width=8)
+    d.ellipse([274, 140, 364, 230], outline=(40, 40, 40), width=6)
+    d.line([474, 140, 564, 250], fill=(40, 40, 40), width=6)
+    d.line([564, 140, 474, 250], fill=(40, 40, 40), width=6)
+    for y in range(300, 400, 18):
+        d.line([24, y, W - 24, y], fill=(120, 120, 120), width=5)
+    img.save(path)
+
+
 def side_tex(path):
     """'18V  5.0Ah  LITHIUM-ION' in white on black, the battery's side."""
     from PIL import Image, ImageDraw, ImageFont
     W, H = 1000, 160
-    TEXT = "18V   5.0 Ah"
+    TEXT = "18V  5.0Ah  LITHIUM-ION"
     img = Image.new("RGB", (W, H), (19, 19, 20))
     d = ImageDraw.Draw(img)
     font = None
