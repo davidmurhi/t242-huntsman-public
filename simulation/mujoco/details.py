@@ -22,6 +22,7 @@ import numpy as np
 # --------------------------------------------------------------------
 BATTERY = (0.075, 0.075, 0.08)   # black, like the front case
 CASE_BLACK = (0.075, 0.075, 0.08)
+RAILS = 0.0165                   # m, battery slide rails below the housing
 
 # --------------------------------------------------------------------
 # Payload case (case2), from the renders: front end narrowing in plan
@@ -93,7 +94,13 @@ def build(cad, folder):
     os.makedirs(folder, exist_ok=True)
     bat = next(p for p in cad["body"] if p["part"] == "Battery LxT 18V v7")
     v = np.array(bat["vertices"])
-    assets = [_mesh("m_bat_look", v)]
+    # Its slide rails (the narrow bottom 16 mm) went into the mount, which
+    # is not drawn; without it the housing would float above the plate.
+    # Draw the housing only, resting on the plate top (z = 0).
+    rails = v[:, 2].min() + RAILS
+    body = _slab(v, rails, v[:, 2].max())
+    body[:, 2] -= rails
+    assets = [_mesh("m_bat_look", body)]
     geoms = [_vis(f'name="battery_look" type="mesh" mesh="m_bat_look" '
                   f'rgba="{_rgba(BATTERY)}" material="satin"')]
     return assets, geoms
