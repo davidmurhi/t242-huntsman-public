@@ -1,14 +1,18 @@
 """
 details.py
 
-The body-mounted pieces that are not plates: the Makita battery and the
-payload case on top (case2). Both are drawn only; spider.py gives them
-their collision shapes and mass.
+The body-mounted pieces that are not plates: the battery in its cradle
+at the back and the payload case (case2) at the front. Both are drawn
+only; spider.py gives them their collision shapes and mass.
 
-    battery     its own outline from Battery LxT 18V v7.ipt, one colour,
-                sitting straight on the plate
-    case2       not in the CAD pack: sized from Ronan's renders, scaled by
-                the body plate (230 mm wide), where bot.iam places it
+    battery     an 18 V 5.0 Ah power-tool pack (115.6 x 74.6 x 67.8 mm):
+                black body, rail block on top, red hood with the charge
+                gauge, rating on the sides
+    cradle      125 x 80 x 40 mm, 4 mm walls, ends full height and the
+                sides cut down in the middle, on the plate's battery tab
+    case2       not in the CAD pack: sized from Ronan's renders so it sits
+                between the hip servos without touching them, in the
+                black speckled 3D-print finish
 """
 
 from __future__ import annotations
@@ -20,22 +24,14 @@ import numpy as np
 # --------------------------------------------------------------------
 # Colours (r g b), Ronan's renders
 # --------------------------------------------------------------------
-BATTERY = (0.075, 0.075, 0.08)   # black, like the front case
 CASE_BLACK = (0.075, 0.075, 0.08)
-RAILS = 0.0165                   # m, battery slide rails below the housing
-MOUNT_MARGIN = 0.003             # m, mount stands this far outside the battery
 DARK = (0.173, 0.176, 0.184)     # the legs' and plate's finish
-LATCH = (0.24, 0.24, 0.25)
-LEAD_RED = (0.70, 0.08, 0.06)
-LEAD_BLACK = (0.04, 0.04, 0.04)
-BEZEL = (0.05, 0.05, 0.055)
-ROCKER = (0.12, 0.12, 0.13)
 
 # --------------------------------------------------------------------
 # Payload case (case2), from the renders: front end narrowing in plan
 # over its last 24 mm and its top-front edge chamfered.
 # --------------------------------------------------------------------
-CASE_TAPER = (0.024, 0.008)     # length of taper, inset each side
+CASE_TAPER = (0.026, 0.009)     # length of taper, inset each side
 CASE_CHAMFER = 0.014            # top-front edge
 CASE_REAR_CHAMFER = 0.003
 
@@ -95,126 +91,187 @@ def _rounded_box(lo, hi, r, k=6):
     return np.array(pts)
 
 
+def _textured_mesh(name, pts, scale=0.06):
+    """Convex hull of pts as a mesh with flat texture coordinates on every
+    face (projected on the face's own plane), so a 2D texture tiles evenly
+    with no smearing. scale = metres per texture repeat."""
+    from scipy.spatial import ConvexHull
+    pts = np.asarray(pts, float)
+    h = ConvexHull(pts)
+    verts, uvs, faces = [], [], []
+    centre = pts.mean(0)
+    for simplex, eq in zip(h.simplices, h.equations):
+        tri = pts[simplex]
+        nrm = eq[:3]
+        if np.dot(np.cross(tri[1] - tri[0], tri[2] - tri[0]), nrm) < 0:
+            tri = tri[[0, 2, 1]]
+        ax = int(np.argmax(np.abs(nrm)))
+        u, v = [k for k in range(3) if k != ax]
+        base = len(verts)
+        for q in tri:
+            verts.append(q)
+            uvs.append(((q[u] - centre[u]) / scale, (q[v] - centre[v]) / scale))
+        faces.append((base, base + 1, base + 2))
+    return (f'    <mesh name="{name}" inertia="shell" vertex="'
+            + " ".join(_n(x) for x in np.ravel(verts)) + '" face="'
+            + " ".join(str(i) for f in faces for i in f) + '" texcoord="'
+            + " ".join(_n(x) for x in np.ravel(uvs)) + '"/>')
+
+
+def speckle_tex(path, size=512, seed=7):
+    """Black 3D-print finish with fine grey flecks, as in Ronan's render."""
+    from PIL import Image
+    rng = np.random.default_rng(seed)
+    a = rng.normal(22, 3, (size, size))
+    flecks = rng.random((size, size))
+    a[flecks > 0.985] = rng.uniform(45, 85, (flecks > 0.985).sum())
+    a = np.clip(a, 8, 90).astype("uint8")
+    Image.fromarray(np.stack([a] * 3, -1)).save(path)
+
+
+# --------------------------------------------------------------------
+# Battery (18 V 5.0 Ah power-tool pack) and the cradle it sits in.
+# Battery 115.6 x 74.6 x 67.8 mm; cradle 125 x 80 x 40 mm, 4 mm walls,
+# ends full height, sides cut down in the middle. Placed where the CAD
+# puts the battery, sitting on the plate's battery tab.
+# --------------------------------------------------------------------
+BAT_L, BAT_W, BAT_H = 0.1156, 0.0746, 0.0678
+BODY_H = 0.048                  # main body; the rail block sits on top
+CR_L, CR_W, CR_H, CR_T = 0.125, 0.080, 0.040, 0.004
+CR_LOW = 0.020                  # height of the cut-down middle of the walls
+RED = (0.78, 0.07, 0.07)
+PACK_BLACK = (0.07, 0.07, 0.075)
+CRADLE_BLACK = (0.09, 0.09, 0.095)
+
+
+def _box_pts(lo, hi):
+    return np.array([[x, y, z] for x in (lo[0], hi[0])
+                     for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+
+
 def build(cad, folder):
-    """The battery: its CAD outline in one piece, sitting on the plate.
-    Returns (asset lines, body geom lines)."""
+    """The battery in its cradle. Returns (asset lines, body geom lines)."""
     os.makedirs(folder, exist_ok=True)
     bat = next(p for p in cad["body"] if p["part"] == "Battery LxT 18V v7")
     v = np.array(bat["vertices"])
-    lo, hi = v.min(0), v.max(0)
-    rails = lo[2] + RAILS                  # top of the slide rails
-    # Housing: the battery above its rails, where the CAD puts it.
-    assets = [_mesh("m_bat_look", _slab(v, rails, hi[2]))]
-    geoms = [_vis(f'name="battery_look" type="mesh" mesh="m_bat_look" '
-                  f'rgba="{_rgba(BATTERY)}" material="satin"')]
-    # Adapter dock: the block the battery slides onto, as on the real
-    # robot, in the legs' dark finish, from the plate up to the housing.
-    m_lo = [lo[0] - MOUNT_MARGIN, lo[1] - MOUNT_MARGIN, 0.0]
-    m_hi = [hi[0] + MOUNT_MARGIN, hi[1] + MOUNT_MARGIN, rails]
-    assets.append(_mesh("m_bat_mount", _rounded_box(m_lo, m_hi, 0.002)))
-    geoms.append(_vis(f'name="battery_mount" type="mesh" mesh="m_bat_mount" '
-                      f'rgba="{_rgba(DARK)}" material="satin"'))
-    # Adapter dock details, after the common Makita 18V battery docks:
-    # T-rails along both sides that the battery's slide locks into, a
-    # back wall at the terminal end with the power leads coming out of
-    # it, the latch notch at the open end, and the on/off rocker switch
-    # on the front.
-    length = m_hi[0] - m_lo[0]
-    cx = (m_lo[0] + m_hi[0]) / 2
-    for side, sy in (("l", 1), ("r", -1)):
-        geoms.append(_vis(                                   # rail upright
-            f'name="dock_rail_{side}" type="box" size="{_n(length / 2 - 0.006)} '
-            f'0.0020 0.0045" pos="{_n(cx + 0.002)} '
-            f'{_n(sy * (hi[1] + 0.0010))} {_n(rails + 0.0040)}" '
-            f'rgba="{_rgba(DARK)}" material="satin"'))
-        geoms.append(_vis(                                   # rail lip
-            f'name="dock_lip_{side}" type="box" size="{_n(length / 2 - 0.006)} '
-            f'0.0032 0.0012" pos="{_n(cx + 0.002)} '
-            f'{_n(sy * (hi[1] - 0.0010))} {_n(rails + 0.0080)}" '
-            f'rgba="{_rgba(DARK)}" material="satin"'))
-    # Back wall at the battery's tail (its terminal end), with the leads.
-    wall_x = m_lo[0] + 0.004
-    geoms.append(_vis(
-        f'name="dock_wall" type="box" size="0.004 {_n(hi[1] + 0.003)} 0.010" '
-        f'pos="{_n(wall_x)} 0 {_n(rails + 0.006)}" rgba="{_rgba(DARK)}" '
-        f'material="satin"'))
-    for k, (dy, col) in enumerate(((0.008, LEAD_RED), (-0.008, LEAD_BLACK))):
-        geoms.append(_vis(
-            f'name="dock_lead{k}" type="capsule" size="0.0028 0.010" '
-            f'pos="{_n(wall_x - 0.006)} {_n(dy)} {_n(rails + 0.004)}" '
-            f'euler="0 70 0" rgba="{_rgba(col)}"'))
-    # Latch notch at the open (front) end of the slide.
-    geoms.append(_vis(
-        f'name="dock_notch" type="box" size="0.006 0.012 0.0004" '
-        f'pos="{_n(m_hi[0] - 0.010)} 0 {_n(rails + 0.0004)}" '
-        f'rgba="0.06 0.06 0.065 1"'))
-    # On/off rocker switch on the front face.
-    front = m_hi[0]
-    zc = rails / 2
-    geoms.append(_vis(
-        f'name="switch_bezel" type="box" size="0.0015 0.0095 0.0062" '
-        f'pos="{_n(front + 0.0015)} 0 {_n(zc)}" rgba="{_rgba(BEZEL)}" '
-        f'material="satin"'))
-    geoms.append(_vis(
-        f'name="switch_rocker" type="box" size="0.0014 0.0078 0.0048" '
-        f'pos="{_n(front + 0.0033)} 0 {_n(zc)}" euler="0 12 0" '
-        f'rgba="{_rgba(ROCKER)}" material="satin"'))
-    geoms.append(_vis(
-        f'name="switch_mark" type="box" size="0.0002 0.0007 0.0024" '
-        f'pos="{_n(front + 0.0049)} 0 {_n(zc + 0.0008)}" euler="0 12 0" '
-        f'rgba="0.92 0.92 0.92 1"'))
+    cx = float((v[:, 0].min() + v[:, 0].max()) / 2)
+    assets, geoms = [], []
 
-    # Battery markings: the white rating label on its top face and the
-    # voltage/capacity line on both sides, as on a BL1850B (no brand mark).
-    label_tex(os.path.join(folder, "bat_label.png"))
+    def piece(name, pts, colour, material="satin"):
+        assets.append(_mesh(f"m_{name}", pts))
+        geoms.append(_vis(f'name="{name}" type="mesh" mesh="m_{name}" '
+                          f'rgba="{_rgba(colour)}" material="{material}"'))
+
+    def box(name, centre, half, colour, extra=""):
+        geoms.append(_vis(f'name="{name}" type="box" size="{_vec(half)}" '
+                          f'pos="{_vec(centre)}" rgba="{_rgba(colour)}" '
+                          f'material="satin" {extra}'))
+
+    # ---- cradle: floor, two end walls, two side walls (U-shaped) ----
+    x0, x1 = cx - CR_L / 2, cx + CR_L / 2
+    w2 = CR_W / 2
+    piece("cradle_floor", _rounded_box([x0, -w2, 0.0], [x1, w2, CR_T], 0.002),
+          CRADLE_BLACK)
+    post = 0.018                                   # tall corner length
+    ramp = 0.010
+    for sx, tag in ((-1, "rear"), (1, "front")):
+        xe = cx + sx * (CR_L / 2 - CR_T / 2)
+        # End wall: tall posts at both corners, lower in the middle.
+        for sy in (-1, 1):
+            yi = sy * (w2 - post)
+            piece(f"cradle_end_{tag}_{'l' if sy > 0 else 'r'}", np.vstack([
+                _box_pts([xe - CR_T / 2, min(yi, sy * w2), 0],
+                         [xe + CR_T / 2, max(yi, sy * w2), CR_H]),
+                _box_pts([xe - CR_T / 2, yi - sy * ramp, 0],
+                         [xe + CR_T / 2, yi - sy * ramp, CR_LOW])]),
+                CRADLE_BLACK)
+        box(f"cradle_end_{tag}_mid", (xe, 0, CR_LOW / 2),
+            (CR_T / 2, w2 - post - ramp + 0.0005, CR_LOW / 2), CRADLE_BLACK)
+    for sy, tag in ((1, "l"), (-1, "r")):
+        ye = sy * (w2 - CR_T / 2)
+        for sx in (-1, 1):
+            xi = cx + sx * (CR_L / 2 - post)
+            piece(f"cradle_side_{tag}_{'f' if sx > 0 else 'b'}", np.vstack([
+                _box_pts([min(xi, cx + sx * CR_L / 2), ye - CR_T / 2, 0],
+                         [max(xi, cx + sx * CR_L / 2), ye + CR_T / 2, CR_H]),
+                _box_pts([xi - sx * ramp, ye - CR_T / 2, 0],
+                         [xi - sx * ramp, ye + CR_T / 2, CR_LOW])]),
+                CRADLE_BLACK)
+        box(f"cradle_side_{tag}_mid", (cx, ye, CR_LOW / 2),
+            (CR_L / 2 - post - ramp + 0.0005, CR_T / 2, CR_LOW / 2),
+            CRADLE_BLACK)
+
+    # ---- battery, resting on the cradle floor ----
+    z0 = CR_T
+    bl, bw = BAT_L / 2, BAT_W / 2
+    gauge = -1                                     # gauge end faces the back
+    piece("pack_body", _rounded_box([cx - bl, -bw, z0], [cx + bl, bw, z0 + BODY_H],
+                                    0.005), PACK_BLACK)
+    # Rail block on top, from behind the red hood to the far end.
+    rb0 = cx - bl + 0.030 if gauge < 0 else cx - bl + 0.004
+    rb1 = cx + bl - 0.004 if gauge < 0 else cx + bl - 0.030
+    piece("pack_rails", _rounded_box([rb0, -0.026, z0 + BODY_H - 0.002],
+                                     [rb1, 0.026, z0 + BAT_H], 0.003),
+          PACK_BLACK)
+    # Red hood over the gauge end, sloping up to the rail block.
+    xe = cx + gauge * bl
+    hood = np.vstack([
+        _box_pts([min(xe, xe - gauge * 0.034), -bw, z0 + BODY_H - 0.010],
+                 [max(xe, xe - gauge * 0.034), bw, z0 + BODY_H - 0.009]),
+        _box_pts([min(xe - gauge * 0.006, xe - gauge * 0.030), -0.030,
+                  z0 + BAT_H - 0.002],
+                 [max(xe - gauge * 0.006, xe - gauge * 0.030), 0.030,
+                  z0 + BAT_H - 0.001]),
+        _box_pts([min(xe - gauge * 0.001, xe - gauge * 0.034), -bw + 0.002,
+                  z0 + BODY_H - 0.009],
+                 [max(xe - gauge * 0.001, xe - gauge * 0.034), bw - 0.002,
+                  z0 + BODY_H + 0.004])])
+    piece("pack_hood", hood, RED)
+    # Charge gauge: four bars and a button on the hood's end face.
+    for k in range(4):
+        box(f"pack_led{k}", (xe + gauge * 0.0006, -0.016 + 0.0075 * k,
+                             z0 + BODY_H - 0.002),
+            (0.0006, 0.0028, 0.0016), (0.18, 0.18, 0.19))
+    geoms.append(_vis(
+        f'name="pack_button" type="cylinder" size="0.0042 0.0006" '
+        f'pos="{_vec((xe + gauge * 0.0006, 0.019, z0 + BODY_H - 0.002))}" '
+        f'zaxis="{gauge} 0 0" rgba="0.22 0.22 0.23 1" material="satin"'))
+    # Contact slots on top of the rail block and the slide grooves.
+    top = z0 + BAT_H
+    for k in range(6):
+        box(f"pack_slot{k}", (rb0 + 0.010 if gauge < 0 else rb1 - 0.010,
+                              -0.0125 + 0.005 * k, top + 0.0002),
+            (0.006, 0.0011, 0.0003), (0.02, 0.02, 0.02))
+    for sy in (-1, 1):
+        box(f"pack_groove{'l' if sy > 0 else 'r'}",
+            ((rb0 + rb1) / 2, sy * 0.0262, top - 0.008),
+            ((rb1 - rb0) / 2 - 0.004, 0.0004, 0.0018), (0.02, 0.02, 0.02))
+    # Side panels: the rating on both sides (no brand marks).
     side_tex(os.path.join(folder, "bat_side.png"))
     assets += [
-        '    <texture name="bat_label" type="2d" file="textures/bat_label.png"/>',
-        '    <material name="bat_label" texture="bat_label" specular="0.1"/>',
         '    <texture name="bat_side" type="2d" file="textures/bat_side.png"/>',
         '    <material name="bat_side" texture="bat_side" specular="0.1"/>']
-    geoms.append(_vis(
-        f'name="bat_label" type="box" size="0.030 0.026 0.0002" '
-        f'pos="-0.1580 0 {_n(hi[2] + 0.0002)}" material="bat_label"'))
-    for side, sy in (("l", 1), ("r", -1)):
+    for sy, tag in ((1, "l"), (-1, "r")):
         x_axis = "-1 0 0" if sy > 0 else "1 0 0"
         geoms.append(_vis(
-            f'name="bat_side_{side}" type="box" size="0.031 0.0052 0.0002" '
-            f'pos="-0.1610 {_n(sy * (hi[1] + 0.0004))} 0.0470" '
-            f'xyaxes="{x_axis} 0 0 1" material="bat_side"'))
-    # The plate's battery tab carried on under the mount to its back end,
-    # so nothing hangs off the end of the base.
-    tab_end = -0.197                       # where body.ipt's tab stops
-    if m_lo[0] < tab_end:
-        x0, x1 = m_lo[0], tab_end + 0.002
-        geoms.append(_vis(
-            f'name="plate_tab_ext" type="box" size="{_n((x1 - x0) / 2)} '
-            f'0.0335 0.0025" pos="{_n((x0 + x1) / 2)} 0 -0.0025" '
-            f'rgba="{_rgba(DARK)}" material="satin"'))
+            f'name="pack_side_{tag}" type="box" size="0.034 0.0085 0.0002" '
+            f'pos="{_n(cx + 0.006)} {_n(sy * (bw + 0.0003))} '
+            f'{_n(z0 + BODY_H * 0.55)}" xyaxes="{x_axis} 0 0 1" '
+            f'material="bat_side"'))
+
+    # The plate's battery tab carried on under the cradle to its back end.
+    tab_end = -0.197
+    if x0 < tab_end:
+        box("plate_tab_ext", ((x0 + tab_end + 0.002) / 2, 0, -0.0025),
+            ((tab_end + 0.002 - x0) / 2, 0.0335, 0.0025), DARK)
     return assets, geoms
-
-
-def label_tex(path):
-    """The battery's rating label: white, ruled, with a few blocks of
-    small print and the recycling marks as simple shapes."""
-    from PIL import Image, ImageDraw
-    W, H = 600, 520
-    img = Image.new("RGB", (W, H), (226, 226, 222))
-    d = ImageDraw.Draw(img)
-    d.rectangle([4, 4, W - 5, H - 5], outline=(60, 60, 60), width=4)
-    for y in range(40, 200, 22):                     # small print
-        d.line([30, y, W - 30, y], fill=(120, 120, 120), width=6)
-    for i, x in enumerate((40, 180, 320, 460)):        # symbols
-        d.ellipse([x, 260, x + 100, 360], outline=(40, 40, 40), width=6)
-    d.rectangle([40, 400, W - 40, 470], outline=(40, 40, 40), width=5)
-    img.save(path)
 
 
 def side_tex(path):
     """'18V  5.0Ah  LITHIUM-ION' in white on black, the battery's side."""
     from PIL import Image, ImageDraw, ImageFont
     W, H = 1000, 160
-    TEXT = "18V   5.0Ah   LITHIUM-ION"
+    TEXT = "18V   5.0 Ah"
     img = Image.new("RGB", (W, H), (19, 19, 20))
     d = ImageDraw.Draw(img)
     font = None
@@ -251,10 +308,14 @@ def case_and_sled(size, centre_x, folder):
             (xr + cr, -W / 2, H), (xr + cr, W / 2, H),
             (xf - tl, -W / 2, H), (xf - tl, W / 2, H),
             (xf - c, -W / 2 + ti * 0.6, H), (xf - c, W / 2 - ti * 0.6, H)]
+    speckle_tex(os.path.join(folder, "case_speckle.png"))
     assets += ['    <material name="satin" specular="0.18" shininess="0.35"/>',
-               '    <material name="matte" specular="0.06" shininess="0.1"/>',
-               _mesh("m_case_look", pts)]
-    geoms.append(_vis(f'name="case_look" type="mesh" mesh="m_case_look" '
-                      f'rgba="{_rgba(CASE_BLACK)}" material="matte"'))
+               '    <texture name="case_speckle" type="2d" '
+               'file="textures/case_speckle.png"/>',
+               '    <material name="case_speckle" texture="case_speckle" '
+               'specular="0.06" shininess="0.1"/>',
+               _textured_mesh("m_case_look", pts)]
+    geoms.append(_vis('name="case_look" type="mesh" mesh="m_case_look" '
+                      'material="case_speckle"'))
 
     return assets, geoms

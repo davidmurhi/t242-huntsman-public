@@ -63,8 +63,8 @@ TIBIA_ANGLE_DOWN = 72.0        # lower leg this far below level
 # Payload enclosure ('case2' in bot.iam). Its part file was not in the
 # pack, so it is a box sized from Ronan's top-view render, placed where
 # bot.iam puts it. Its mass is the 867 g 'Payload' line on the sheet.
-PAYLOAD_SIZE = (0.129, 0.093, 0.045)
-PAYLOAD_CENTRE_X = 0.040
+PAYLOAD_SIZE = (0.118, 0.080, 0.045)
+PAYLOAD_CENTRE_X = 0.0375
 PAYLOAD_MASS = 0.867
 
 # Servos: 9imod DSC55MG, 55 kg.cm = 5.39 N.m at stall. Confirm at the 8 V
