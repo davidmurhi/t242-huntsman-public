@@ -167,6 +167,7 @@ CR_LOW = 0.014                  # height of the cut-down middle of the walls
 PACK_BLACK = (0.09, 0.09, 0.095)
 CRADLE_BLACK = (0.09, 0.09, 0.095)
 PLATE_GREY = (0.17, 0.17, 0.18)      # same as the legs
+INTERNAL = ("part1.stl", "part2.stl", "part4.stl")   # BMS, contacts
 PLATE_X0 = -0.1985               # ramp end of the battery plate
 PLATE_FLOOR = 0.007             # its pocket floor, above the base
 
@@ -236,12 +237,21 @@ def build(cad, folder):
     lift = PLATE_FLOOR - loaded[0][1][:, :, 2].min()
     for k, (part, tris) in enumerate(loaded):
         tris = tris + [0.0, 0.0, lift]
+        if part["file"] in INTERNAL:
+            continue
         fn = f"placed{k}.stl"
         _write_stl(os.path.join(out_dir, fn), tris)
         assets.append(f'    <mesh name="m_battery{k}" '
                       f'file="meshes/battery_placed/{fn}" inertia="shell"/>')
         geoms.append(_vis(f'name="battery{k}" type="mesh" mesh="m_battery{k}" '
                           f'rgba="{_rgba(part["rgb"])}" material="satin"'))
+    # Solid dark core inside the case, so the side grip recesses (whose
+    # curved backs the STEP does not carry) read as closed, not see-through.
+    zc = lift + loaded[0][1][:, :, 2].min()          # case bottom
+    box("pack_core", (-0.1585, 0, zc + 0.0265), (0.046, 0.033, 0.0215),
+        PACK_BLACK)
+    box("pack_core_rail", (-0.1685, 0, zc + 0.0075), (0.030, 0.033, 0.006),
+        PACK_BLACK)
     allv = np.vstack([t.reshape(-1, 3) for _p, t in loaded]) + [0, 0, lift]
     top, bw = allv[:, 2].max(), allv[:, 1].max()
     # Printed rating label on the flat face, and the rating on one side.
