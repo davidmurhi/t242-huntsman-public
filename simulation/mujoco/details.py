@@ -166,6 +166,9 @@ CR_L, CR_W, CR_H, CR_T = 0.125, 0.082, 0.040, 0.004
 CR_LOW = 0.014                  # height of the cut-down middle of the walls
 PACK_BLACK = (0.09, 0.09, 0.095)
 CRADLE_BLACK = (0.09, 0.09, 0.095)
+PLATE_GREY = (0.17, 0.17, 0.18)      # same as the legs
+PLATE_X0 = -0.1985               # ramp end of the battery plate
+PLATE_FLOOR = 0.007             # its pocket floor, above the base
 
 
 def _box_pts(lo, hi):
@@ -191,45 +194,25 @@ def build(cad, folder):
                           f'pos="{_vec(centre)}" rgba="{_rgba(colour)}" '
                           f'material="satin" {extra}'))
 
-    # ---- cradle: floor, two end walls, two side walls (U-shaped) ----
-    x0, x1 = cx - CR_L / 2, cx + CR_L / 2
-    w2 = CR_W / 2
-    piece("cradle_floor", _rounded_box([x0, -w2, 0.0], [x1, w2, CR_T], 0.002),
-          CRADLE_BLACK)
-    post = 0.018                                   # tall corner length
-    ramp = 0.010
-    for sx, tag in ((-1, "rear"), (1, "front")):
-        xe = cx + sx * (CR_L / 2 - CR_T / 2)
-        # End wall: tall posts at both corners, lower in the middle.
-        for sy in (-1, 1):
-            yi = sy * (w2 - post)
-            piece(f"cradle_end_{tag}_{'l' if sy > 0 else 'r'}", np.vstack([
-                _box_pts([xe - CR_T / 2, min(yi, sy * w2), 0],
-                         [xe + CR_T / 2, max(yi, sy * w2), CR_H]),
-                _box_pts([xe - CR_T / 2, yi - sy * ramp, 0],
-                         [xe + CR_T / 2, yi - sy * ramp, CR_LOW])]),
-                CRADLE_BLACK)
-        box(f"cradle_end_{tag}_mid", (xe, 0, CR_LOW / 2),
-            (CR_T / 2, w2 - post - ramp + 0.0005, CR_LOW / 2), CRADLE_BLACK)
-    for sy, tag in ((1, "l"), (-1, "r")):
-        ye = sy * (w2 - CR_T / 2)
-        for sx in (-1, 1):
-            xi = cx + sx * (CR_L / 2 - post)
-            piece(f"cradle_side_{tag}_{'f' if sx > 0 else 'b'}", np.vstack([
-                _box_pts([min(xi, cx + sx * CR_L / 2), ye - CR_T / 2, 0],
-                         [max(xi, cx + sx * CR_L / 2), ye + CR_T / 2, CR_H]),
-                _box_pts([xi - sx * ramp, ye - CR_T / 2, 0],
-                         [xi - sx * ramp, ye + CR_T / 2, CR_LOW])]),
-                CRADLE_BLACK)
-        box(f"cradle_side_{tag}_mid", (cx, ye, CR_LOW / 2),
-            (CR_L / 2 - post - ramp + 0.0005, CR_T / 2, CR_LOW / 2),
-            CRADLE_BLACK)
-
-    # Locating blocks inside the short ends, as in the cradle drawing.
-    for sx, tag in ((-1, "rear"), (1, "front")):
-        box(f"cradle_stop_{tag}", (cx + sx * (CR_L / 2 - CR_T - 0.004), 0,
-                                   CR_T + 0.005), (0.004, 0.011, 0.005),
-            CRADLE_BLACK)
+    # ---- battery plate: the printed adapter, from Battery Plate.stl ----
+    # 72 x 90 x 22 mm (cad/parts, same part as Makita Battery Mounting
+    # 04.step). Flat face screwed to the base tab; the pack slides in
+    # along its 90 mm length, terminals down, latch at the ramped end.
+    # Plate frame: x across (0..72), y along the slide (0 = ramp end),
+    # z up from the base. Its latch pocket sits under the pack's latch.
+    pl = _read_stl(os.path.join(HERE, "cad", "parts", "Battery Plate.stl"))
+    pl = pl / 1000.0
+    x0 = PLATE_X0
+    x1 = x0 + 0.090
+    placed = np.stack([x0 + pl[:, :, 1], pl[:, :, 0] - 0.036, pl[:, :, 2]], -1)
+    placed = placed[:, ::-1]                 # swapping x, y mirrors: rewind
+    pdir = os.path.join(folder, "..", "meshes", "battery_placed")
+    os.makedirs(pdir, exist_ok=True)
+    _write_stl(os.path.join(pdir, "plate.stl"), placed)
+    assets.append('    <mesh name="m_battery_plate" '
+                  'file="meshes/battery_placed/plate.stl" inertia="shell"/>')
+    geoms.append(_vis(f'name="battery_plate" type="mesh" mesh="m_battery_plate" '
+                      f'rgba="{_rgba(PLATE_GREY)}" material="satin"'))
 
     # ---- battery: the real pack, from Battery LxT 18V v7.step ----
     # The STEP (in cad/parts, exported to meshes/battery by cad/step.py)
@@ -248,7 +231,9 @@ def build(cad, folder):
     for part in parts:
         tris = _read_stl(os.path.join(src, part["file"])) @ R.T + P
         loaded.append((part, tris))
-    lift = CR_T - min(t[:, :, 2].min() for _p, t in loaded)
+    # The pack's terminal face rests on the plate's 7 mm floor; its latch
+    # drops into the pocket at the ramped end.
+    lift = PLATE_FLOOR - loaded[0][1][:, :, 2].min()
     for k, (part, tris) in enumerate(loaded):
         tris = tris + [0.0, 0.0, lift]
         fn = f"placed{k}.stl"
