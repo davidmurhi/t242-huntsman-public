@@ -25,6 +25,9 @@ CASE_BLACK = (0.075, 0.075, 0.08)
 RAILS = 0.0165                   # m, battery slide rails below the housing
 MOUNT_MARGIN = 0.003             # m, mount stands this far outside the battery
 DARK = (0.173, 0.176, 0.184)     # the legs' and plate's finish
+LATCH = (0.24, 0.24, 0.25)
+BEZEL = (0.05, 0.05, 0.055)
+ROCKER = (0.12, 0.12, 0.13)
 
 # --------------------------------------------------------------------
 # Payload case (case2), from the renders: front end narrowing in plan
@@ -102,13 +105,41 @@ def build(cad, folder):
     assets = [_mesh("m_bat_look", _slab(v, rails, hi[2]))]
     geoms = [_vis(f'name="battery_look" type="mesh" mesh="m_bat_look" '
                   f'rgba="{_rgba(BATTERY)}" material="satin"')]
-    # Mount: the block the battery slides into, as in the design, in the
-    # legs' dark finish, from the plate up to the housing.
+    # Adapter dock: the block the battery slides onto, as on the real
+    # robot, in the legs' dark finish, from the plate up to the housing.
     m_lo = [lo[0] - MOUNT_MARGIN, lo[1] - MOUNT_MARGIN, 0.0]
     m_hi = [hi[0] + MOUNT_MARGIN, hi[1] + MOUNT_MARGIN, rails]
     assets.append(_mesh("m_bat_mount", _rounded_box(m_lo, m_hi, 0.002)))
     geoms.append(_vis(f'name="battery_mount" type="mesh" mesh="m_bat_mount" '
                       f'rgba="{_rgba(DARK)}" material="satin"'))
+    # Adapter details, as on the real robot: the side rails that hold the
+    # battery's slide, the release latch at the back, and the on/off
+    # switch on the front.
+    length = m_hi[0] - m_lo[0]
+    cx = (m_lo[0] + m_hi[0]) / 2
+    for side, sy in (("l", 1), ("r", -1)):
+        geoms.append(_vis(
+            f'name="dock_rail_{side}" type="box" size="{_n(length / 2 - 0.004)} '
+            f'0.0016 0.0025" pos="{_n(cx)} {_n(sy * (hi[1] + 0.0016))} '
+            f'{_n(rails + 0.0022)}" rgba="{_rgba(DARK)}" material="satin"'))
+    geoms.append(_vis(
+        f'name="dock_latch" type="box" size="0.0035 0.012 0.004" '
+        f'pos="{_n(m_lo[0] - 0.002)} 0 {_n(rails - 0.004)}" '
+        f'rgba="{_rgba(LATCH)}" material="satin"'))
+    front = m_hi[0]
+    zc = rails / 2
+    geoms.append(_vis(
+        f'name="switch_bezel" type="box" size="0.0012 0.0075 0.0050" '
+        f'pos="{_n(front + 0.0012)} 0 {_n(zc)}" rgba="{_rgba(BEZEL)}" '
+        f'material="satin"'))
+    geoms.append(_vis(
+        f'name="switch_rocker" type="box" size="0.0012 0.0058 0.0036" '
+        f'pos="{_n(front + 0.0028)} 0 {_n(zc)}" euler="0 12 0" '
+        f'rgba="{_rgba(ROCKER)}" material="satin"'))
+    geoms.append(_vis(
+        f'name="switch_mark" type="box" size="0.0002 0.0006 0.0018" '
+        f'pos="{_n(front + 0.0042)} 0 {_n(zc + 0.0006)}" euler="0 12 0" '
+        f'rgba="0.9 0.9 0.9 1"'))
     # The plate's battery tab carried on under the mount to its back end,
     # so nothing hangs off the end of the base.
     tab_end = -0.197                       # where body.ipt's tab stops
