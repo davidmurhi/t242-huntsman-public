@@ -21,18 +21,18 @@ pytest.importorskip("cv2")
 
 def _same(a, b, path="$"):
     if isinstance(a, dict):
-        assert set(a) == set(b), f"{path}: keys differ"
+        assert set(a) == set(b), f"{path}: keys differ {set(a) ^ set(b)}"
         for k in a:
             _same(a[k], b[k], f"{path}.{k}")
     elif isinstance(a, list) and a and not isinstance(a[0], (int, float)):
-        assert len(a) == len(b), f"{path}: length differs"
+        assert len(a) == len(b), f"{path}: length {len(a)} != {len(b)}"
         for i, (x, y) in enumerate(zip(a, b)):
             _same(x, y, f"{path}[{i}]")
     elif isinstance(a, (list, int, float)) and not isinstance(a, bool):
         np.testing.assert_allclose(np.asarray(a, float), np.asarray(b, float),
                                    rtol=0, atol=1e-6, err_msg=path)
     else:
-        assert a == b, path
+        assert a == b, f"{path}: {str(a)[:80]} != {str(b)[:80]}"
 
 
 def test_extracted_geometry_matches_committed(tmp_path):

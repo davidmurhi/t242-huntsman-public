@@ -69,7 +69,7 @@ def main():
     def snap(robot_id, yaw, pitch, dist, w=W, h=H):
         pos, _ = p.getBasePositionAndOrientation(robot_id)
         view = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=[pos[0], pos[1], 0.12], distance=dist,
+            cameraTargetPosition=[pos[0], pos[1], 0.6 * pos[2]], distance=dist,
             yaw=yaw, pitch=pitch, roll=0, upAxisIndex=2)
         proj = p.computeProjectionMatrixFOV(fov=45, aspect=w / h,
                                             nearVal=0.02, farVal=20)
@@ -88,12 +88,12 @@ def main():
         state["track"].append((t, *pos, p.getEulerFromQuaternion(orn)[2]))
         if k % 12 == 0:                                   # 20 frames/s
             state["frames"].append(snap(robot_id, 45 + 20 * t / total, -22,
-                                        1.6, 640, 400))
+                                        2.0, 480, 300))
         if k == int(4.0 / dt):
-            for name, yaw, pitch, dist in (("iso", 45, -25, 1.5),
-                                           ("side", 0, -8, 1.6),
-                                           ("top", 0, -80, 1.7),
-                                           ("front", 90, -15, 1.5)):
+            for name, yaw, pitch, dist in (("iso", 45, -25, 1.9),
+                                           ("side", 0, -8, 2.0),
+                                           ("top", 0, -80, 2.2),
+                                           ("front", 90, -15, 1.9)):
                 snap(robot_id, yaw, pitch, dist).save(
                     os.path.join(args.out, f"pybullet_{name}.png"))
         state["step"] += 1

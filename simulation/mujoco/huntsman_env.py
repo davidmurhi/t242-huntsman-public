@@ -24,7 +24,7 @@ HOW THE ROBOT LEARNS (the short version)
     nudges the network towards whatever earned more reward. Millions of
     steps later it has learned what works.
 
-WHAT THE POLICY SEES (observation, 83 numbers)
+WHAT THE POLICY SEES (observation, 86 numbers)
     24 joint angles and 24 joint speeds, which way is down (3), how fast
     the body is turning (3) and moving (3), the drive command (3), where
     the gait is in its cycle (2), and its own last action (24).

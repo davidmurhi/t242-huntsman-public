@@ -17,12 +17,12 @@ def env(spider_xml_path):
 
 def test_spaces(env):
     assert env.action_space.shape == (24,)
-    assert env.observation_space.shape == (83,)
+    assert env.observation_space.shape == (86,)
 
 
 def test_reset_and_step(env):
     obs, info = env.reset(seed=1)
-    assert obs.shape == (83,) and np.isfinite(obs).all()
+    assert obs.shape == (86,) and np.isfinite(obs).all()
     assert info["terrain"] in ("flat", "slope")
     total = 0.0
     for _ in range(50):

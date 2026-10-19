@@ -476,7 +476,6 @@ class Step:
 
 def _triangulate(loops, outer, grid=None):
     """Triangles (n, 3, 2) filling the outer loop minus the others."""
-    from matplotlib.path import Path
     from scipy.spatial import Delaunay
     dense = []
     for L in loops:
@@ -502,12 +501,23 @@ def _triangulate(loops, outer, grid=None):
         return np.zeros((0, 3, 2))
     T = pts[tri.simplices]
     c = T.mean(1)
-    keep = Path(loops[outer]).contains_points(c, radius=1e-9) | \
-        Path(loops[outer][::-1]).contains_points(c, radius=1e-9)
+    keep = _inside(loops[outer], c)
     for k, L in enumerate(loops):
         if k != outer:
-            keep &= ~Path(L).contains_points(c)
+            keep &= ~_inside(L, c)
     return T[keep]
+
+
+def _inside(poly, pts):
+    """Even-odd point-in-polygon test for many points at once."""
+    poly = np.asarray(poly, float)
+    x, y = pts[:, 0][:, None], pts[:, 1][:, None]
+    x0, y0 = poly[:, 0][None, :], poly[:, 1][None, :]
+    x1, y1 = np.roll(poly[:, 0], -1)[None, :], np.roll(poly[:, 1], -1)[None, :]
+    crosses = (y0 > y) != (y1 > y)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        xs = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+    return (crosses & (x < xs)).sum(axis=1) % 2 == 1
 
 
 def write_stl(path, tris):

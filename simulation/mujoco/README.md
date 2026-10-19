@@ -112,7 +112,7 @@ the training environment (Gymnasium), `train.py` trains it with PPO
 * **What it learns:** corrections on top of the hand gait (up to 20 deg
   per servo), not walking from scratch. Starting from a gait that
   already walks makes training far faster and safer.
-* **What it sees:** 83 numbers, all measurable on the real robot: joint
+* **What it sees:** 86 numbers, all measurable on the real robot: joint
   angles and speeds, which way is down, body turn and speed (IMU), the
   drive command, gait phase and its last action.
 * **What it is rewarded for:** moving at the commanded speed, holding

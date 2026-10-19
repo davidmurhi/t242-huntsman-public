@@ -10,4 +10,7 @@ done
 grep -E "^/.*\.py:[0-9]+: " pytest.log | head -10 | while IFS= read -r line; do
   echo "::error title=assert::${line}"
 done
+grep -E "^E  " pytest.log | head -8 | while IFS= read -r line; do
+  echo "::error title=detail::${line}"
+done
 exit $status
