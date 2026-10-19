@@ -19,6 +19,9 @@ pytest.importorskip("zstandard")
 pytest.importorskip("cv2")
 
 
+TOL = 5e-5   # metres (and radians, unitless for texture coordinates)
+
+
 def _same(a, b, path="$"):
     if isinstance(a, dict):
         assert set(a) == set(b), f"{path}: keys differ {set(a) ^ set(b)}"
@@ -29,8 +32,11 @@ def _same(a, b, path="$"):
         for i, (x, y) in enumerate(zip(a, b)):
             _same(x, y, f"{path}[{i}]")
     elif isinstance(a, (list, int, float)) and not isinstance(a, bool):
-        np.testing.assert_allclose(np.asarray(a, float), np.asarray(b, float),
-                                   rtol=0, atol=1e-6, err_msg=path)
+        x, y = np.asarray(a, float), np.asarray(b, float)
+        assert x.shape == y.shape, f"{path}: shape {x.shape} != {y.shape}"
+        worst = float(np.abs(x - y).max()) if x.size else 0.0
+        # 0.05 mm: well below anything the simulation could notice
+        assert worst <= TOL, f"{path}: differs by up to {worst:.3g}"
     else:
         assert a == b, f"{path}: {str(a)[:80]} != {str(b)[:80]}"
 

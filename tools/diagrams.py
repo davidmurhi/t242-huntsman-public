@@ -244,11 +244,11 @@ def roadmap():
         s.parts.append(f'<rect x="{X(a) + 1:.1f}" y="{y + 4}" width="{X(b) - X(a) - 2:.1f}" '
                        f'height="20" rx="5" fill="{c}"/>')
     yb = top + row * len(rows)
-    for w, label in ((13, "A2 presentation"), (14, "A3 report")):
+    for w, label in ((13, "A2 presentation"), (14, "A3 report")):  # noqa: B007
         s.parts.append(f'<line x1="{X(w)}" y1="{top - 6}" x2="{X(w)}" y2="{yb}" stroke="{ROSE}" '
                        'stroke-dasharray="4 4" stroke-width="1.5"/>')
-    s.text(X(13) - 4, yb + 18, "A2 (wk 13)", 12, ROSE, "end")
-    s.text(X(14) + 4, yb + 18, "A3 (wk 14)", 12, ROSE)
+    s.text(X(13) - 4, yb + 18, "A2 presentation (22 Oct)", 12, ROSE, "end")
+    s.text(X(14) + 4, yb + 18, "A3 report", 12, ROSE)
     for w in range(1, 27):
         s.text(X(w - 0.5), yb + 40, str(w if w <= 13 else w - 13), 11, MUTED, "middle")
     s.text(x0 - 10, yb + 40, "week", 11, MUTED, "end")
