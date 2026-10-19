@@ -22,7 +22,9 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from spider_env import SpiderEnv
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from spider_env import SpiderEnv  # lives one folder up
 
 # ---------------- Config ----------------
 TOTAL_TIMESTEPS = 500_000   

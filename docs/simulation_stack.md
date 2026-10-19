@@ -29,7 +29,7 @@ RL training library with PPO built in. PPO (Proximal Policy Optimization) is the
 - 8 legs — 4 pairs (l1/r1, l2/r2, l3/r3, l4/r4)
 - 3 joints per leg: hip (horizontal, forward/back), knee (vertical, up/down), ankle (vertical, up/down)
 - 24 motors total
-- Built from Craig's shape description — URDF files in /simulation/capstone spider robot/
+- Built from Craig's shape description — URDF files in `simulation/pybullet/` (history in `simulation/pybullet/versions/`)
 
 ## Current status (Week 9)
 

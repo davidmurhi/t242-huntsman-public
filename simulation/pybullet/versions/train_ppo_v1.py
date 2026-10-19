@@ -15,7 +15,9 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 
-from spider_env import SpiderEnv
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from spider_env import SpiderEnv  # lives one folder up
 
 # ---------------- Config ----------------
 TOTAL_TIMESTEPS = 200_000   

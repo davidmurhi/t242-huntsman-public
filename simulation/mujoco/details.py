@@ -196,12 +196,13 @@ def build(cad, folder):
                           f'material="satin" {extra}'))
 
     # ---- battery plate: the printed adapter, from Battery Plate.stl ----
-    # 72 x 90 x 22 mm (cad/parts, same part as Makita Battery Mounting
+    # 72 x 90 x 22 mm (hardware/cad/battery, same part as Makita Battery Mounting
     # 04.step). Flat face screwed to the base tab; the pack slides in
     # along its 90 mm length, terminals down, latch at the ramped end.
     # Plate frame: x across (0..72), y along the slide (0 = ramp end),
     # z up from the base. Its latch pocket sits under the pack's latch.
-    pl = _read_stl(os.path.join(HERE, "cad", "parts", "Battery Plate.stl"))
+    pl = _read_stl(os.path.join(HERE, "..", "..", "hardware", "cad", "battery",
+                             "Battery Plate.stl"))
     pl = pl / 1000.0
     x0 = PLATE_X0
     x1 = x0 + 0.090
@@ -216,7 +217,7 @@ def build(cad, folder):
                       f'rgba="{_rgba(PLATE_GREY)}" material="satin"'))
 
     # ---- battery: the real pack, from Battery LxT 18V v7.step ----
-    # The STEP (in cad/parts, exported to meshes/battery by cad/step.py)
+    # The STEP (in hardware/cad/battery, exported to meshes/battery by cad/step.py)
     # is in the same frame as the Inventor part, so the CAD placement puts
     # it exactly where bot.iam does: terminals down into the cradle, the
     # flat label face up, latch button towards the robot. Lifted onto the

@@ -14,7 +14,7 @@ p.setGravity(0, 0, -9.8)
 p.setRealTimeSimulation(0)
 
 plane_id = p.loadURDF("plane.urdf")
-urdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "spider8_v5_longbody_3joint.urdf")
+urdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "spider8_v5_longbody_3joint.urdf")
 start_pos = [0, 0, 0.35]
 robot_id = p.loadURDF(urdf_path, start_pos, useFixedBase=False)
 
