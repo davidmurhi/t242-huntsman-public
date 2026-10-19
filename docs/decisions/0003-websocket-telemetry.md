@@ -1,6 +1,6 @@
 # 0003: WebSockets for telemetry and commands
 
-**Status:** Accepted in Sprint 2 (team meeting 8 Sep 2026).
+**Status:** Accepted in Sprint 1 (team meeting 8 Sep 2026).
 **Owner:** Tom (operator interface).
 
 ## Context
