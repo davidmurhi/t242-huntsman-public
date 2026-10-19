@@ -1,0 +1,15 @@
+# Project Huntsman — Python dependencies
+# T242 | IFB398 26se2
+
+# MuJoCo simulation
+mujoco>=3.1.0
+
+# RL
+gymnasium>=0.29.0
+stable-baselines3>=2.3.0
+
+# Numerical
+numpy>=1.24.0
+
+# Testing
+pytest>=7.4.0

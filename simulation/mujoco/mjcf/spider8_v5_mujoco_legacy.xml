@@ -1,0 +1,282 @@
+<mujoco model="spider8_v5_huntsman">
+  <compiler angle="radian" autolimits="true"/>
+  <option gravity="0 0 -9.81" timestep="0.002"
+          integrator="RK4" solver="Newton"
+          iterations="100" tolerance="1e-10"/>
+  <default>
+    <joint damping="1.5" armature="0.015" limited="true"/>
+    <geom friction="1.2 0.1 0.05" condim="3"
+          solimp="0.9 0.95 0.001 0.5 2" solref="0.02 1"/>
+    <motor ctrllimited="true" forcelimited="true"/>
+  </default>
+  <asset>
+    <texture name="grid" type="2d" builtin="checker"
+             rgb1="0.25 0.25 0.25" rgb2="0.32 0.32 0.32" width="512" height="512"/>
+    <material name="floor_mat" texture="grid" texrepeat="8 8" reflectance="0.0" shininess="0.0"/>
+    <material name="body_mat"  rgba="0.15 0.25 0.60 1"/>
+    <material name="leg_mat"   rgba="0.70 0.15 0.15 1"/>
+    <material name="lower_mat" rgba="0.12 0.12 0.12 1"/>
+    <material name="foot_mat"  rgba="0.05 0.05 0.05 1"/>
+    <material name="obs_mat"   rgba="0.52 0.42 0.22 1"/>
+  </asset>
+  <worldbody>
+    <light name="sun"  pos="0 0 8"   dir="0 0 -1"     diffuse="0.9 0.9 0.9" specular="0.1 0.1 0.1"/>
+    <light name="fill" pos="5 3 5"   dir="-1 -0.6 -1" diffuse="0.4 0.4 0.4"/>
+    <light name="back" pos="-5 -3 4" dir="1 0.6 -0.8" diffuse="0.25 0.25 0.25"/>
+    <geom name="floor" type="plane" size="100 100 0.1" material="floor_mat"
+          friction="1.5 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+
+    <!--
+      OBSTACLE COURSE — research-informed (He et al. 2024 block field approach):
+      Staggered blocks of increasing height, offset laterally so the robot
+      must deal with mixed foot-contact states (some feet elevated, some grounded).
+      Domain randomisation is applied in Python at each episode reset.
+      Heights kept achievable with hand-coded gait so the demo still works.
+    -->
+    <!-- Row 1: low staggered steps -->
+    <geom name="step1a" type="box" size="0.06 0.45 0.035" pos="1.8  0.22 0.035" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <geom name="step1b" type="box" size="0.06 0.45 0.025" pos="1.8 -0.22 0.025" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <!-- Row 2: taller, reversed offset — forces asymmetric contact -->
+    <geom name="step2a" type="box" size="0.07 0.45 0.050" pos="3.2  0.20 0.050" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <geom name="step2b" type="box" size="0.07 0.45 0.040" pos="3.2 -0.20 0.040" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <!-- Row 3: tall centred block — requires full step-over -->
+    <geom name="step3"  type="box" size="0.08 0.80 0.060" pos="4.8  0.0  0.060" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <!-- Scattered bumps: tests single-foot obstacle detection -->
+    <geom name="bump1" type="cylinder" size="0.07 0.030" pos="1.2 -0.35 0.030" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <geom name="bump2" type="cylinder" size="0.06 0.025" pos="2.5  0.38 0.025" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+    <geom name="bump3" type="cylinder" size="0.05 0.020" pos="4.0 -0.30 0.020" material="obs_mat"
+          solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1"/>
+
+    <!--
+      SQUARE BODY per Craig's spec.
+      Legs at x = +0.13, +0.04, -0.04, -0.13 (evenly spaced along body)
+      Coxa splays wide: 0.18m sideways + slight downward slope
+      This gives ~0.44m support polygon width = stable base
+      Hip: yaw (Z-axis) = horizontal swing = Craig's 8 horizontal joints
+      Knee+Ankle: pitch (X-axis) = lift/lower = Craig's 16 vertical joints
+
+      FOOT CONTACT SENSORS added per He et al. 2024:
+        Each foot has a touch sensor. The contact ratio beta = (feet in contact / 8)
+        is used by the feedback controller to adjust knee lift dynamically.
+        This is the same principle that gave 30-60% speed improvement in the paper.
+    -->
+    <body name="torso" pos="0 0 0.30">
+      <freejoint name="root"/>
+      <inertial pos="0 0 0" mass="1.4" diaginertia="0.020 0.020 0.035"/>
+      <geom name="torso_geom" type="box" size="0.17 0.17 0.022" material="body_mat"
+            solimp="0.9 0.95 0.001 0.5 2" solref="0.02 1"/>
+
+      <!-- L1 -->
+      <body name="l1_coxa" pos="0.13 0.13 0">
+        <inertial pos="0 0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="l1_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="l1_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 0.18 -0.06" material="leg_mat"/>
+        <body name="l1_femur" pos="0 0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="l1_knee" type="hinge" axis="1 0 0" range="-0.1 1.6"/>
+          <geom name="l1_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="l1_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="l1_ankle" type="hinge" axis="1 0 0" range="-0.7 0.5"/>
+            <geom name="l1_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="l1_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- R1 -->
+      <body name="r1_coxa" pos="0.13 -0.13 0">
+        <inertial pos="0 -0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="r1_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="r1_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 -0.18 -0.06" material="leg_mat"/>
+        <body name="r1_femur" pos="0 -0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="r1_knee" type="hinge" axis="-1 0 0" range="-0.1 1.6"/>
+          <geom name="r1_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="r1_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="r1_ankle" type="hinge" axis="-1 0 0" range="-0.7 0.5"/>
+            <geom name="r1_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="r1_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- L2 -->
+      <body name="l2_coxa" pos="0.04 0.13 0">
+        <inertial pos="0 0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="l2_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="l2_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 0.18 -0.06" material="leg_mat"/>
+        <body name="l2_femur" pos="0 0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="l2_knee" type="hinge" axis="1 0 0" range="-0.1 1.6"/>
+          <geom name="l2_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="l2_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="l2_ankle" type="hinge" axis="1 0 0" range="-0.7 0.5"/>
+            <geom name="l2_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="l2_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- R2 -->
+      <body name="r2_coxa" pos="0.04 -0.13 0">
+        <inertial pos="0 -0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="r2_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="r2_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 -0.18 -0.06" material="leg_mat"/>
+        <body name="r2_femur" pos="0 -0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="r2_knee" type="hinge" axis="-1 0 0" range="-0.1 1.6"/>
+          <geom name="r2_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="r2_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="r2_ankle" type="hinge" axis="-1 0 0" range="-0.7 0.5"/>
+            <geom name="r2_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="r2_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- L3 -->
+      <body name="l3_coxa" pos="-0.04 0.13 0">
+        <inertial pos="0 0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="l3_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="l3_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 0.18 -0.06" material="leg_mat"/>
+        <body name="l3_femur" pos="0 0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="l3_knee" type="hinge" axis="1 0 0" range="-0.1 1.6"/>
+          <geom name="l3_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="l3_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="l3_ankle" type="hinge" axis="1 0 0" range="-0.7 0.5"/>
+            <geom name="l3_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="l3_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- R3 -->
+      <body name="r3_coxa" pos="-0.04 -0.13 0">
+        <inertial pos="0 -0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="r3_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="r3_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 -0.18 -0.06" material="leg_mat"/>
+        <body name="r3_femur" pos="0 -0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="r3_knee" type="hinge" axis="-1 0 0" range="-0.1 1.6"/>
+          <geom name="r3_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="r3_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="r3_ankle" type="hinge" axis="-1 0 0" range="-0.7 0.5"/>
+            <geom name="r3_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="r3_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- L4 -->
+      <body name="l4_coxa" pos="-0.13 0.13 0">
+        <inertial pos="0 0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="l4_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="l4_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 0.18 -0.06" material="leg_mat"/>
+        <body name="l4_femur" pos="0 0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="l4_knee" type="hinge" axis="1 0 0" range="-0.1 1.6"/>
+          <geom name="l4_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="l4_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="l4_ankle" type="hinge" axis="1 0 0" range="-0.7 0.5"/>
+            <geom name="l4_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="l4_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+      <!-- R4 -->
+      <body name="r4_coxa" pos="-0.13 -0.13 0">
+        <inertial pos="0 -0.09 -0.03" mass="0.09" diaginertia="0.0004 0.0004 0.0002"/>
+        <joint name="r4_hip" type="hinge" axis="0 0 1" range="-0.8 0.8"/>
+        <geom name="r4_coxa_g" type="capsule" size="0.018" fromto="0 0 0 0 -0.18 -0.06" material="leg_mat"/>
+        <body name="r4_femur" pos="0 -0.18 -0.06">
+          <inertial pos="0 0 -0.08" mass="0.060" diaginertia="0.0003 0.0003 0.0001"/>
+          <joint name="r4_knee" type="hinge" axis="-1 0 0" range="-0.1 1.6"/>
+          <geom name="r4_femur_g" type="capsule" size="0.015" fromto="0 0 0 0 0 -0.17" material="lower_mat"/>
+          <body name="r4_tibia" pos="0 0 -0.17">
+            <inertial pos="0 0 -0.06" mass="0.030" diaginertia="0.0001 0.0001 0.0001"/>
+            <joint name="r4_ankle" type="hinge" axis="-1 0 0" range="-0.7 0.5"/>
+            <geom name="r4_foot" type="sphere" size="0.023" pos="0 0 -0.07" material="foot_mat"
+                  friction="2.0 0.1 0.05" solimp="0.999 0.9999 0.001 0.5 2" solref="0.004 1" condim="3"/>
+            <site name="r4_touch" pos="0 0 -0.07" size="0.025"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- TOUCH SENSORS — one per foot (He et al. 2024 contact ratio approach) -->
+  <sensor>
+    <touch name="l1_sensor" site="l1_touch"/>
+    <touch name="r1_sensor" site="r1_touch"/>
+    <touch name="l2_sensor" site="l2_touch"/>
+    <touch name="r2_sensor" site="r2_touch"/>
+    <touch name="l3_sensor" site="l3_touch"/>
+    <touch name="r3_sensor" site="r3_touch"/>
+    <touch name="l4_sensor" site="l4_touch"/>
+    <touch name="r4_sensor" site="r4_touch"/>
+  </sensor>
+
+  <contact>
+    <exclude body1="torso"    body2="l1_coxa"/> <exclude body1="torso"    body2="r1_coxa"/>
+    <exclude body1="torso"    body2="l2_coxa"/> <exclude body1="torso"    body2="r2_coxa"/>
+    <exclude body1="torso"    body2="l3_coxa"/> <exclude body1="torso"    body2="r3_coxa"/>
+    <exclude body1="torso"    body2="l4_coxa"/> <exclude body1="torso"    body2="r4_coxa"/>
+    <exclude body1="l1_coxa"  body2="l1_femur"/> <exclude body1="r1_coxa" body2="r1_femur"/>
+    <exclude body1="l2_coxa"  body2="l2_femur"/> <exclude body1="r2_coxa" body2="r2_femur"/>
+    <exclude body1="l3_coxa"  body2="l3_femur"/> <exclude body1="r3_coxa" body2="r3_femur"/>
+    <exclude body1="l4_coxa"  body2="l4_femur"/> <exclude body1="r4_coxa" body2="r4_femur"/>
+    <exclude body1="l1_femur" body2="l1_tibia"/> <exclude body1="r1_femur" body2="r1_tibia"/>
+    <exclude body1="l2_femur" body2="l2_tibia"/> <exclude body1="r2_femur" body2="r2_tibia"/>
+    <exclude body1="l3_femur" body2="l3_tibia"/> <exclude body1="r3_femur" body2="r3_tibia"/>
+    <exclude body1="l4_femur" body2="l4_tibia"/> <exclude body1="r4_femur" body2="r4_tibia"/>
+  </contact>
+  <keyframe>
+    <key name="home" qpos="0 0 0.30 1 0 0 0
+         0.0 0.45 0.0   0.0 0.45 0.0
+         0.0 0.45 0.0   0.0 0.45 0.0
+         0.0 0.45 0.0   0.0 0.45 0.0
+         0.0 0.45 0.0   0.0 0.45 0.0"/>
+  </keyframe>
+  <actuator>
+    <position name="l1_hip"   joint="l1_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="l1_knee"  joint="l1_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="l1_ankle" joint="l1_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="r1_hip"   joint="r1_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="r1_knee"  joint="r1_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="r1_ankle" joint="r1_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="l2_hip"   joint="l2_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="l2_knee"  joint="l2_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="l2_ankle" joint="l2_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="r2_hip"   joint="r2_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="r2_knee"  joint="r2_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="r2_ankle" joint="r2_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="l3_hip"   joint="l3_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="l3_knee"  joint="l3_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="l3_ankle" joint="l3_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="r3_hip"   joint="r3_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="r3_knee"  joint="r3_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="r3_ankle" joint="r3_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="l4_hip"   joint="l4_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="l4_knee"  joint="l4_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="l4_ankle" joint="l4_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+    <position name="r4_hip"   joint="r4_hip"   kp="50" forcerange="-50 50" ctrlrange="-0.8 0.8"/>
+    <position name="r4_knee"  joint="r4_knee"  kp="65" forcerange="-65 65" ctrlrange="-0.1 1.6"/>
+    <position name="r4_ankle" joint="r4_ankle" kp="40" forcerange="-40 40" ctrlrange="-0.7 0.5"/>
+  </actuator>
+</mujoco>
