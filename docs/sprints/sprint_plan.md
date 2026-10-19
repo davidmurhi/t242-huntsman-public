@@ -11,12 +11,12 @@ Kanban board: https://github.com/users/davidmurhi/projects/3
 
 | Sprint | Weeks | Goal | Status |
 |---|---|---|---|
-| Sprint 1 | Wk 1–2 | Project setup, Craig kickoff meeting, roles confirmed | Done |
-| Sprint 2 | Wk 3–4 | Hardware scoping, first PyBullet prototype | Done |
-| Sprint 3 | Wk 5–6 | Gymnasium wrapper, PPO pipeline, first training run | Done |
-| Sprint 4 | Wk 7–8 | Contact-ratio feedback, obstacle testing, A1.2 Week 7 | Done |
-| Sprint 5 | Wk 9–10 | MuJoCo simulation rebuild from hardware first principles | Done |
-| Sprint 6 | Wk 11–12 | Full 8-leg model, gait controller, A2 presentation | In Progress |
+| Sprint 1 | Wk 1–2 | Project setup, Craig kickoff meeting, roles confirmed | ✅ Done |
+| Sprint 2 | Wk 3–4 | Hardware scoping, first PyBullet prototype | ✅ Done |
+| Sprint 3 | Wk 5–6 | Gymnasium wrapper, PPO pipeline, first training run | ✅ Done |
+| Sprint 4 | Wk 7–8 | Contact-ratio feedback, obstacle testing, A1.2 Week 7 | ✅ Done |
+| Sprint 5 | Wk 9–10 | MuJoCo simulation rebuild from hardware first principles | ✅ Done |
+| Sprint 6 | Wk 11–12 | Full 8-leg model, gait controller, A2 presentation | 🔄 In Progress |
 
 ---
 

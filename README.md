@@ -1,6 +1,7 @@
 # T242 — Project Huntsman
 **IFB398 IT Capstone Phase 1 | QUT 2026 Semester 2**
 
+![Tests](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml/badge.svg)
 
 ## Project Overview
 
@@ -46,8 +47,8 @@ craig@vsource.dev | www.vsource.dev
   /current spider robot    — current PyBullet environment
   /mujoco                  — MuJoCo rebuild from hardware first principles (Sprint 5, David)
     /mjcf                  — MJCF model files
-      huntsman_body.xml    [done] Step 1: body geometry + physics (validated)
-      huntsman_l1.xml      [done] Step 2: body + L1 leg (validated)
+      huntsman_body.xml    ✅ Step 1: body geometry + physics (validated)
+      huntsman_l1.xml      ✅ Step 2: body + L1 leg (validated)
     /viewer                — interactive viewer scripts
       huntsman_body.py     — view body (SPACE/R/Q)
       huntsman_l1.py       — view + control L1 leg (H/K J/U N/M)
@@ -90,12 +91,12 @@ The MuJoCo simulation is built one validated step at a time from Craig's confirm
 
 | Step | File | Status |
 |---|---|---|
-| 1 | `huntsman_body.xml` | Done — body geometry, mass, inertia validated |
-| 2 | `huntsman_l1.xml` | Done — body + L1 leg, joint geometry, foot sensor validated |
-| 3 | `huntsman_full.xml` | In progress — all 8 legs |
-| 4 | Gait controller | Planned — wave gait (1 swing, 7 stance) |
-| 5 | Gymnasium wrapper | Planned — full RL interface for new model |
-| 6 | PPO training | Phase 2 |
+| 1 | `huntsman_body.xml` | ✅ Body geometry, mass, inertia validated |
+| 2 | `huntsman_l1.xml` | ✅ Body + L1 leg, joint geometry, foot sensor validated |
+| 3 | `huntsman_full.xml` | 🔄 All 8 legs — in progress |
+| 4 | Gait controller | ⬜ Wave gait (1 swing, 7 stance) |
+| 5 | Gymnasium wrapper | ⬜ Full RL interface for new model |
+| 6 | PPO training | ⬜ Phase 2 |
 
 Design rationale: [`docs/design/simulation_design.md`](docs/design/simulation_design.md)
 
