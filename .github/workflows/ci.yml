@@ -1,4 +1,4 @@
-name: Simulation Tests
+name: CI
 
 on:
   push:
@@ -7,9 +7,12 @@ on:
     branches: [ main, dev ]
 
 jobs:
-  test:
+  # ─────────────────────────────────────────────
+  # Job 1: MuJoCo simulation unit tests
+  # ─────────────────────────────────────────────
+  mujoco-tests:
+    name: MuJoCo simulation tests
     runs-on: ubuntu-latest
-    name: MuJoCo simulation unit tests
 
     steps:
       - name: Checkout
@@ -20,11 +23,106 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-mujoco-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-mujoco-
+
+      - name: Install MuJoCo dependencies
         run: |
           pip install --upgrade pip
           pip install mujoco numpy pytest
 
-      - name: Run simulation tests
+      - name: Run MuJoCo simulation tests
         run: |
-          python -m pytest simulation/mujoco/tests/ -v --tb=short
+          python -m pytest simulation/mujoco/tests/ -v --tb=short --junit-xml=test-results/mujoco.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mujoco-test-results
+          path: test-results/
+
+  # ─────────────────────────────────────────────
+  # Job 2: PyBullet / RL environment smoke test
+  # ─────────────────────────────────────────────
+  pybullet-tests:
+    name: PyBullet RL environment tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-pybullet-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-pybullet-
+
+      - name: Install PyBullet dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pybullet gymnasium stable-baselines3 numpy pytest
+
+      - name: Smoke test — import spider_env
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'simulation')
+          from spider_env import SpiderEnv
+          env = SpiderEnv(render=False)
+          obs, _ = env.reset()
+          action = env.action_space.sample()
+          obs, reward, terminated, truncated, info = env.step(action)
+          env.close()
+          assert obs.shape == (31,), f'Unexpected obs shape: {obs.shape}'
+          assert isinstance(reward, float), f'Reward not float: {type(reward)}'
+          print(f'SpiderEnv OK — obs={obs.shape}, reward={reward:.4f}')
+          "
+
+  # ─────────────────────────────────────────────
+  # Job 3: Code quality (flake8 linting)
+  # ─────────────────────────────────────────────
+  lint:
+    name: Code quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint Python files
+        run: |
+          # E501 = line too long (relaxed for simulation scripts)
+          # W503 = line break before binary operator (style preference)
+          flake8 simulation/ \
+            --exclude="simulation/capstone spider robot,simulation/current spider robot" \
+            --max-line-length=120 \
+            --extend-ignore=E501,W503,E302,E303 \
+            --count --statistics

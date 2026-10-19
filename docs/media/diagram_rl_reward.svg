@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" font-family="'Helvetica Neue', Arial, sans-serif">
+  <rect width="700" height="380" fill="#0f1117"/>
+
+  <text x="350" y="32" text-anchor="middle" font-size="16" font-weight="700" fill="#e2e8f0" letter-spacing="1">REINFORCEMENT LEARNING REWARD — PROJECT HUNTSMAN</text>
+  <text x="350" y="50" text-anchor="middle" font-size="11" fill="#64748b">He et al. (2024) · arxiv:2409.09473 · adapted for 8-leg wave gait</text>
+
+  <!-- =================== REWARD FORMULA BOX =================== -->
+  <rect x="60" y="70" width="580" height="100" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="350" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#94a3b8">TOTAL REWARD PER TIMESTEP</text>
+
+  <!-- R = v_forward - 0.6 * |v_lateral| - 0.01 * ||torque||^2  +  contact_bonus -->
+  <text x="350" y="128" text-anchor="middle" font-size="16" font-family="'Courier New', monospace" fill="#e2e8f0">
+    R = v_fwd
+  </text>
+  <!-- colour each part -->
+  <!-- We'll do them as separate tspans / text elements positioned precisely -->
+  <text x="116" y="128" font-size="15" font-family="'Courier New', monospace" fill="#e2e8f0">R  =  </text>
+  <text x="196" y="128" font-size="15" font-family="'Courier New', monospace" fill="#10b981">v_forward</text>
+  <text x="308" y="128" font-size="15" font-family="'Courier New', monospace" fill="#e2e8f0">  −  0.6 × </text>
+  <text x="440" y="128" font-size="15" font-family="'Courier New', monospace" fill="#ef4444">|v_lateral|</text>
+  <text x="116" y="154" font-size="15" font-family="'Courier New', monospace" fill="#e2e8f0">     −  0.01 × </text>
+  <text x="280" y="154" font-size="15" font-family="'Courier New', monospace" fill="#f59e0b">‖torque‖²</text>
+  <text x="416" y="154" font-size="15" font-family="'Courier New', monospace" fill="#e2e8f0">  +  </text>
+  <text x="458" y="154" font-size="15" font-family="'Courier New', monospace" fill="#6366f1">contact_bonus</text>
+
+  <!-- =================== CONTACT BONUS BOX =================== -->
+  <rect x="400" y="190" width="280" height="56" rx="8" fill="#1e293b" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="540" y="210" text-anchor="middle" font-size="11" font-weight="700" fill="#6366f1">CONTACT BONUS</text>
+  <text x="540" y="228" text-anchor="middle" font-size="13" font-family="'Courier New', monospace" fill="#e2e8f0">0.1 × (feet_grounded / 8)</text>
+  <text x="540" y="242" text-anchor="middle" font-size="9" fill="#64748b">β = feet_grounded/8</text>
+  <!-- connector line -->
+  <line x1="458" y1="154" x2="458" y2="178" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="458" y1="178" x2="540" y2="178" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="540" y1="178" x2="540" y2="190" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowI)"/>
+
+  <!-- =================== TERM EXPLANATIONS =================== -->
+  <!-- v_forward -->
+  <rect x="60" y="190" width="160" height="74" rx="7" fill="#0d2818" stroke="#10b981" stroke-width="1.5"/>
+  <text x="140" y="210" text-anchor="middle" font-size="11" font-weight="700" fill="#10b981">v_forward</text>
+  <text x="140" y="226" text-anchor="middle" font-size="10" fill="#94a3b8">forward velocity</text>
+  <text x="140" y="240" text-anchor="middle" font-size="10" fill="#64748b">primary drive for</text>
+  <text x="140" y="254" text-anchor="middle" font-size="10" fill="#64748b">locomotion reward</text>
+
+  <!-- v_lateral -->
+  <rect x="236" y="190" width="152" height="74" rx="7" fill="#2d0f0f" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="312" y="210" text-anchor="middle" font-size="11" font-weight="700" fill="#ef4444">|v_lateral|</text>
+  <text x="312" y="226" text-anchor="middle" font-size="10" fill="#94a3b8">lateral drift penalty</text>
+  <text x="312" y="240" text-anchor="middle" font-size="10" fill="#64748b">keeps robot moving</text>
+  <text x="312" y="254" text-anchor="middle" font-size="10" fill="#64748b">in a straight line</text>
+
+  <!-- torque -->
+  <rect x="60" y="278" width="152" height="74" rx="7" fill="#1e1700" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="136" y="298" text-anchor="middle" font-size="11" font-weight="700" fill="#f59e0b">‖torque‖²</text>
+  <text x="136" y="314" text-anchor="middle" font-size="10" fill="#94a3b8">energy cost penalty</text>
+  <text x="136" y="330" text-anchor="middle" font-size="10" fill="#64748b">discourages wasteful</text>
+  <text x="136" y="344" text-anchor="middle" font-size="10" fill="#64748b">servo effort</text>
+
+  <!-- contact ratio -->
+  <rect x="228" y="278" width="172" height="74" rx="7" fill="#12102a" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="314" y="298" text-anchor="middle" font-size="11" font-weight="700" fill="#6366f1">contact ratio β</text>
+  <text x="314" y="314" text-anchor="middle" font-size="10" fill="#94a3b8">feet_grounded / 8</text>
+  <text x="314" y="330" text-anchor="middle" font-size="10" fill="#64748b">target: β &gt; 0.8</text>
+  <text x="314" y="344" text-anchor="middle" font-size="10" fill="#64748b">discourages mid-air stumble</text>
+
+  <!-- observation inputs -->
+  <rect x="420" y="262" width="240" height="90" rx="7" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="540" y="282" text-anchor="middle" font-size="11" font-weight="700" fill="#94a3b8">OBSERVATION SPACE</text>
+  <text x="436" y="300" font-size="10" fill="#64748b">24 joint positions + 24 joint velocities</text>
+  <text x="436" y="315" font-size="10" fill="#64748b">8 foot touch sensors (contact binary)</text>
+  <text x="436" y="330" font-size="10" fill="#64748b">6D body pose (pos + orientation)</text>
+  <text x="436" y="345" font-size="10" fill="#6366f1">→ 62 total observations</text>
+
+  <defs>
+    <marker id="arrowI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1"/>
+    </marker>
+  </defs>
+
+  <text x="350" y="368" text-anchor="middle" font-size="10" fill="#475569">He et al. (2024) · Agile But Safe: Learning Collision-Free High-Speed Legged Locomotion · arxiv:2409.09473</text>
+</svg>
