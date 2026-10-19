@@ -1,10 +1,12 @@
 # Huntsman in MuJoCo, built from V Source's CAD
 
 The simulated robot is generated from V Source's own Inventor CAD
-(`Huntsman.zip`, sent by Ronan Donahoe on 15 Oct 2026), so its shape, joint
+(`hardware/cad/inventor`, sent by Ronan Donahoe on 15 Oct 2026), so its shape, joint
 positions and masses match the robot they are building. It walks with a
 spider ripple gait, and you can drive it from the keyboard, a browser drive
 pad, or the team's operator dashboard.
+
+![The CAD-built Huntsman in MuJoCo](../../docs/media/mujoco/huntsman_hero.jpg)
 
 ![V Source render beside the simulation](media/cad_vs_sim.png)
 
@@ -14,6 +16,7 @@ python spider.py --save        # build spider.xml (+ textures/) and print the ch
 python controller.py           # drive it with the arrow keys (plain python, every OS)
 mjpython walk.py               # watch it walk straight; add --route for a tour
 python walk.py --check         # walk 30 s headless and report
+python -m pytest tests         # 54 tests: CAD, gait, protocol, physics, RL env
 ```
 
 ## Driving it
@@ -135,7 +138,7 @@ mjpython watch_policy.py runs/<run>/best_model.zip --terrain rubble
 ## How the model is made
 
 ```
-Huntsman/*.ipt, *.iam  --cad/extract_cad.py-->  cad/huntsman_cad.json  --spider.py-->  spider.xml + textures/
+hardware/cad/inventor  --cad/extract_cad.py-->  cad/huntsman_cad.json  --spider.py-->  spider.xml + textures/
    (Ronan's CAD)                                  (shapes, joints, skins)              (MuJoCo)
 ```
 
@@ -152,7 +155,7 @@ every hole from the part file. `looks.py` paints the skins (the
 
 ```
 pip install olefile zstandard numpy scipy opencv-python
-python cad/extract_cad.py path/to/Huntsman/
+python cad/extract_cad.py ../../hardware/cad/inventor/
 ```
 
 ## What comes from the CAD and what does not
@@ -201,3 +204,4 @@ sent degrees, which drove every servo into its stop.
 | `huntsman_env.py`, `train.py`, `watch_policy.py` | RL environment, PPO training, viewing a trained policy |
 | `diagnostics/` | contact and actuator probes used while tuning |
 | `media/` | renders, the walking clip and `progress/`, every version side by side |
+| `tests/` | the test suite CI runs on every push ([docs/testing.md](../../docs/testing.md)) |

@@ -1,5 +1,10 @@
 # Simulation Stack — Project Huntsman
 
+> Week 9 snapshot (Kai), kept as written. What happened next: the
+> pybullet-arm64 fix ([ADR 0002](decisions/0002-pybullet-arm64.md)), PPO
+> training (Sprint 3) and the CAD-built MuJoCo model
+> ([ADR 0004](decisions/0004-cad-calibrated-mujoco.md)).
+
 **T242 | IFB398 26se2 | Updated: 9 Sep 2026**
 
 ## What we are using and why

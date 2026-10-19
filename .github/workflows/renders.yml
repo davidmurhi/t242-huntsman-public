@@ -1,16 +1,10 @@
 name: Renders
 
 # Screenshots and a walking clip of Kai's PyBullet spider, made headless.
-# Run it from the Actions tab (or by pushing tools/ changes on a phase
-# branch); the images are attached to the run as an artifact.
+# Run it from the Actions tab; the images are attached to the run as an
+# artifact (docs/media/pybullet holds the committed copies).
 on:
   workflow_dispatch:
-  push:
-    branches: ["phase1/**"]
-    paths: ["tools/render_pybullet.py", ".github/workflows/renders.yml"]
-
-permissions:
-  contents: write
 
 jobs:
   pybullet:
@@ -28,11 +22,3 @@ jobs:
         with:
           name: pybullet-renders
           path: renders/pybullet
-      - name: Publish to the renders branch (pushes only)
-        if: github.event_name == 'push'
-        run: |
-          cd renders/pybullet
-          git init -q -b renders
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add .
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "PyBullet renders"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" renders:ci/renders

@@ -1,144 +1,128 @@
-# T242 — Project Huntsman
-**IFB398 IT Capstone Phase 1 | QUT 2026 Semester 2**
+# Project Huntsman: learned gait control for a search-and-rescue spider robot
 
-![Tests](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml)
 
-## Project Overview
+**Team T242 | QUT IFB398 IT Capstone, Phase 1 (2026 Semester 2) |
+Industry partner: [V Source Development](https://www.vsource.dev)**
 
-Project Huntsman is an 8-legged spider robot developed by V Source Development, designed for deployment in post-disaster search and rescue environments. The robot has 24 servo motors (3 per leg) controlled by an ESP32, with a Raspberry Pi 5 as the onboard compute and ML inference platform.
+V Source is building **Huntsman**, eight-legged robots that walk into
+disaster zones where wheels and tracks cannot go. They search for
+survivors and keep rescuers informed. Their current controller walks
+on flat ground only. Our project is the **walking gait control
+system**: teach the robot to cross rubble, slopes and steps with
+machine learning, and run that controller on the robot's Raspberry Pi 5
+and ESP32 stack.
 
-Our Phase 1 work covers the ML-based gait control system — teaching the robot to walk across unpredictable terrain using reinforcement learning — along with the operator interface and hardware integration layer.
+<p align="center">
+<img src="docs/media/mujoco/huntsman_hero.jpg" width="49%" alt="The Huntsman simulated from V Source's CAD">
+<img src="hardware/reference/photos/robot_1.jpg" width="49%" alt="The real Huntsman in V Source's lab">
+<br><em>Left: our simulation, generated from V Source's CAD. Right: the robot in V Source's lab.</em>
+</p>
+
+## The two spiders
+
+<table>
+<tr>
+<th width="50%">Phase 1 prototype: PyBullet (Kai)</th>
+<th width="50%">CAD-calibrated platform: MuJoCo (David)</th>
+</tr>
+<tr>
+<td><img src="docs/media/pybullet/pybullet_walk.gif" width="100%" alt="PyBullet spider walking and turning"></td>
+<td><img src="simulation/mujoco/media/huntsman_walk.gif" width="100%" alt="CAD-built spider walking and turning"></td>
+</tr>
+<tr>
+<td>Built from Craig's description before any CAD existed. It proved
+the pipeline: 24-joint URDF, keyboard-driven wave gait, Prab's
+Gymnasium environment, and a PPO policy that moves after 2 M steps.</td>
+<td>Generated from V Source's Inventor CAD: every part, joint axis and
+mass (4.326 kg). Foot-path gait with four modes. Drivable from keyboard,
+drive pad or dashboard. Rough terrains and a residual-RL training
+environment for Phase 2.</td>
+</tr>
+</table>
+
+### Quick start: CAD-calibrated simulation
+
+```bash
+git clone https://github.com/davidmurhi/T242-Project-Huntsman.git
+cd T242-Project-Huntsman/simulation/mujoco
+python3 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python spider.py --save          # build the robot from the CAD; prints its checks
+python controller.py             # drive it: arrows/WASD, Q/E sideways, 1-4 gaits, X e-stop
+python controller.py --terrain rubble     # or slope, steps, mixed
+```
+
+The same window serves a drive pad at http://localhost:8765, and the
+team's dashboard can connect on `ws://localhost:8765/ws`.
+
+### Quick start: PyBullet prototype
+
+```bash
+cd T242-Project-Huntsman/simulation/pybullet
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt  # Apple Silicon + Python 3.13: pip install pybullet-arm64
+python spider8_v6.py             # arrows/WASD to drive, E/Q gears, Space to stop
+```
+
+More in [`simulation/README.md`](simulation/README.md).
+
+## Where it stands (end of Phase 1)
+
+| | |
+|---|---|
+| Simulation | built from the partner's CAD, reproducible in CI, matches the weight sheet |
+| Baseline gait | flat ground: straight to about 1 mm over 3 m, no leg contact; 15 deg slopes: yes; 50 mm steps and 80 mm rubble: stalls. This gap is the target for the learned controller |
+| Learning | PPO pipeline proven on the prototype; CAD-model training environment with terrains, randomisation and curriculum ready |
+| Hardware | Pi 5 to ESP32 serial link proven; servo PWM mapping written; robot photos, video and CAD received |
+| Operator interface | SvelteKit console (mission control, map, diagnostics); live telemetry and drive protocol defined |
+| Quality | 64 automated tests; CI on every push |
+
+<p align="center"><img src="docs/media/mujoco/terrains.jpg" width="100%" alt="The robot on slope, steps and rubble"></p>
+
+## Repository
+
+```
+simulation/
+  mujoco/              CAD-built simulation, gait, controller, terrains, RL environment, tests
+  pybullet/            Kai's prototype, Prab's Gymnasium env, telemetry bridge, PWM mapping, tests
+  mujoco-evaluation/   Sprint 3 framework evaluation and diagnostic harness
+dashboard/             SvelteKit operator console (Tom)
+firmware/              Pi 5 and ESP32 integration notes (Prab)
+hardware/              V Source's CAD, battery files, part weights, photos and video
+docs/                  project definition, sprints, backlog, decisions, meetings, testing, diagrams
+research/              research links and notes
+tools/                 diagram and render generators, CI helpers
+```
+
+## Documentation
+
+* **Definition:** [project definition](docs/project/definition.md),
+  [risks, ethics and governance](docs/project/risks_and_ethics.md)
+* **Plans:** [Phase 1 sprint record](docs/sprints/phase1.md),
+  [Phase 2 plan](docs/sprints/phase2_plan.md),
+  [backlog](docs/agile/backlog.md)
+* **Outputs:** [architecture](docs/architecture.md),
+  [decision records](docs/decisions/README.md),
+  [testing](docs/testing.md), [hardware](hardware/README.md)
+* **Operation:** [how we work](docs/agile/way_of_working.md),
+  [meetings](docs/meetings/README.md),
+  [contributing](CONTRIBUTING.md)
+
+![System architecture](docs/media/diagrams/system_architecture.svg)
 
 ## Team T242
 
-| Name | Role | GitHub |
-|------|------|--------|
-| David Murhi | Team Lead / Project Manager / Simulation | @davidmurhi |
-| Tom Huynh | Frontend / Operator Dashboard | @tomotthyy |
-| Kai Langley | ML / Simulation | @kai12345689 |
-| Prabhanjan Muthukannan | Hardware / Embedded Systems | @Prab-QUT |
-
-## Industry Partner
-
-Craig Schneider — Founder and CTO, V Source Development  
-craig@vsource.dev | www.vsource.dev
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Physics simulation | MuJoCo 3.x (MJCF XML) |
-| RL environment | Gymnasium |
-| RL algorithm | PPO via Stable Baselines 3 |
-| Onboard compute | Raspberry Pi 5 |
-| Motor control | ESP32 + PWM (24 servos) |
-| Operator interface | SvelteKit |
-| Embedded firmware | C/C++ (ESP32) |
-
----
-
-## Repository Structure
-
-```
-/simulation
-  /capstone spider robot   — PyBullet URDF prototypes (v1–v6, Sprints 2–4, Kai)
-  /current spider robot    — current PyBullet environment
-  /mujoco                  — MuJoCo rebuild from hardware first principles (Sprint 5, David)
-    /mjcf                  — MJCF model files
-      huntsman_body.xml    ✅ Step 1: body geometry + physics (validated)
-      huntsman_l1.xml      ✅ Step 2: body + L1 leg (validated)
-    /viewer                — interactive viewer scripts
-      huntsman_body.py     — view body (SPACE/R/Q)
-      huntsman_l1.py       — view + control L1 leg (H/K J/U N/M)
-    /tests                 — unit tests (pytest)
-      test_simulation.py   — 12 tests: mass, geometry, physics stability
-  /rl                      — RL training scripts (updated paths)
-    train_ppo.py           — PPO training (Stable Baselines 3)
-    run_policy.py          — load + run trained policy
-  spider_env.py            — Gymnasium wrapper (Kai)
-
-/.github/workflows/ci.yml  — GitHub Actions: auto-runs tests on push
-
-/docs
-  /sprints                 — Sprint 1–6 plans and retrospectives
-  /hardware                — Hardware spec (confirmed with Craig)
-  /design                  — Simulation design decisions and rationale
-
-/dashboard                 — SvelteKit operator interface (Tom)
-/firmware                  — Pi 5 + ESP32 firmware (Prab)
-/research                  — Research notes and references
-/frontend                  — SvelteKit project root
-```
-
----
-
-## Hardware Summary
-
-- **Robot mass:** ~1.207 kg total
-- **Legs:** 8 × 3 DOF (hip yaw + knee pitch + ankle pitch) = 24 servos
-- **Control chain:** Pi 5 → UART → ESP32 → 24× PWM servo channels
-- **Battery:** 3S LiPo 2200mAh (~20 min runtime at full load)
-
-Full spec: [`docs/hardware/hardware_spec.md`](docs/hardware/hardware_spec.md)
-
----
-
-## Simulation Build Plan (MuJoCo)
-
-The MuJoCo simulation is built one validated step at a time from Craig's confirmed hardware dimensions.
-
-| Step | File | Status |
+| | Role | Owns |
 |---|---|---|
-| 1 | `huntsman_body.xml` | ✅ Body geometry, mass, inertia validated |
-| 2 | `huntsman_l1.xml` | ✅ Body + L1 leg, joint geometry, foot sensor validated |
-| 3 | `huntsman_full.xml` | 🔄 All 8 legs — in progress |
-| 4 | Gait controller | ⬜ Wave gait (1 swing, 7 stance) |
-| 5 | Gymnasium wrapper | ⬜ Full RL interface for new model |
-| 6 | PPO training | ⬜ Phase 2 |
+| David Murhi ([@davidmurhi](https://github.com/davidmurhi)) | Team lead, project manager | partner and tutor communication; CAD-calibrated simulation, gait and controller; repository and CI |
+| Kai Langley ([@kai12345689](https://github.com/kai12345689)) | ML and simulation | PyBullet prototype, PPO training |
+| Prabhanjan Muthukannan ([@Prab-QUT](https://github.com/Prab-QUT)) | Hardware and embedded | Pi 5 and ESP32, Gymnasium environment, telemetry bridge, servo mapping |
+| Tom Huynh ([@tomotthyy](https://github.com/tomotthyy)) | Operator interface | SvelteKit dashboard, telemetry protocol |
 
-Design rationale: [`docs/design/simulation_design.md`](docs/design/simulation_design.md)
+**Industry partner:** Craig Schneider, Founder and CTO, V Source
+Development (craig@vsource.dev). CAD and part data by V Source
+engineer Ronan Donahoe.
 
----
-
-## Quick Start
-
-```bash
-pip install mujoco numpy pytest
-
-# View body (Step 1)
-mjpython simulation/mujoco/viewer/huntsman_body.py
-
-# View + control L1 leg (Step 2)
-# Controls: H/K=hip  J/U=knee  N/M=ankle  SPACE=pause  R=reset  Q=quit
-mjpython simulation/mujoco/viewer/huntsman_l1.py
-
-# Run tests
-python -m pytest simulation/mujoco/tests/ -v
-```
-
----
-
-## Sprint History
-
-See [`docs/sprints/sprint_plan.md`](docs/sprints/sprint_plan.md) for full sprint plans and retrospectives.
-
-| Sprint | Weeks | Key output |
-|---|---|---|
-| 1 | Wk 1–2 | Project setup, Craig kickoff, roles confirmed |
-| 2 | Wk 3–4 | First PyBullet prototype, hardware scoped |
-| 3 | Wk 5–6 | Gymnasium wrapper, PPO pipeline (Kai) |
-| 4 | Wk 7–8 | He et al. contact-ratio feedback, obstacle testing |
-| 5 | Wk 9–10 | MuJoCo rebuild from hardware first principles (David) |
-| 6 | Wk 11–12 | Full 8-leg model, A2 presentation (Week 12) |
-
----
-
-## Branch Strategy
-
-- `main` — stable only
-- `dev` — active development
-- `simulation` — RL and simulation work
-- `dashboard` — SvelteKit dashboard
-- `firmware` — Pi 5 and ESP32 firmware
+The hardware files in `hardware/` belong to V Source Development and
+are shared for this project only.
