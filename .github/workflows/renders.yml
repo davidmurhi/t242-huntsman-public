@@ -9,13 +9,16 @@ on:
     branches: ["phase1/**"]
     paths: ["tools/render_pybullet.py", ".github/workflows/renders.yml"]
 
+permissions:
+  contents: write
+
 jobs:
   pybullet:
     name: PyBullet spider (Kai) screenshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install pybullet numpy pillow
@@ -25,3 +28,11 @@ jobs:
         with:
           name: pybullet-renders
           path: renders/pybullet
+      - name: Publish to the renders branch (pushes only)
+        if: github.event_name == 'push'
+        run: |
+          cd renders/pybullet
+          git init -q -b renders
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "PyBullet renders"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" renders:ci/renders

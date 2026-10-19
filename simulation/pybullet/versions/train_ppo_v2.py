@@ -43,7 +43,7 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 
 
 def main():
-    
+    env = make_vec_env(
         lambda: SpiderEnv(render=False),
         n_envs=N_ENVS,
         vec_env_cls=SubprocVecEnv,

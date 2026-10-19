@@ -14,7 +14,7 @@ concurrency:
 jobs:
   mujoco:
     name: MuJoCo simulation (Python ${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -23,8 +23,8 @@ jobs:
       run:
         working-directory: simulation/mujoco
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -38,51 +38,51 @@ jobs:
       - name: Headless walk check (30 s)
         run: python walk.py --check
       - name: Tests
-        run: python -m pytest tests -v --durations=10
+        run: ../../tools/ci_pytest.sh tests -v --durations=10
 
   cad:
     name: CAD extraction is reproducible
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: simulation/mujoco
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
       - name: Install
         run: pip install numpy scipy pillow pytest olefile zstandard opencv-python-headless
       - name: Re-extract hardware/cad/inventor and compare
-        run: python -m pytest tests/test_cad_reproducible.py tests/test_step_reader.py -v
+        run: ../../tools/ci_pytest.sh tests/test_cad_reproducible.py tests/test_step_reader.py -v
 
   pybullet:
     name: PyBullet simulation and environment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: simulation/pybullet
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
       - name: Install
         run: pip install pybullet gymnasium numpy pytest
       - name: Tests
-        run: python -m pytest tests -v
+        run: ../../tools/ci_pytest.sh tests -v
 
   dashboard:
     name: Operator dashboard (SvelteKit)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: dashboard
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -95,12 +95,12 @@ jobs:
 
   lint:
     name: Python lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install ruff
       - name: Ruff (errors only)
-        run: ruff check --select E9,F63,F7,F82 simulation
+        run: ruff check --output-format=github --select E9,F63,F7,F82 simulation tools
