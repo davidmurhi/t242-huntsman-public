@@ -22,7 +22,24 @@ pytest.importorskip("cv2")
 TOL = 5e-5   # metres (and radians, unitless for texture coordinates)
 
 
+def _canonical(polys):
+    """Hole outlines are closed loops found in no fixed order: start each
+    at its lowest point, either direction, and sort them, so order alone
+    never counts as a difference."""
+    out = []
+    for poly in polys:
+        p = np.round(np.asarray(poly, float), 6)
+        ways = []
+        for q in (p, p[::-1]):                # either direction round
+            k = min(range(len(q)), key=lambda i: tuple(q[i]))
+            ways.append(np.roll(q, -k, axis=0).tolist())
+        out.append(min(ways))
+    return sorted(out, key=lambda q: (len(q), q[0]))
+
+
 def _same(a, b, path="$"):
+    if path.endswith("hole_polys"):
+        a, b = _canonical(a), _canonical(b)
     if isinstance(a, dict):
         assert set(a) == set(b), f"{path}: keys differ {set(a) ^ set(b)}"
         for k in a:
