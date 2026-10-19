@@ -1,15 +1,7 @@
-# Project Huntsman — Python dependencies
-# T242 | IFB398 26se2
+# Project Huntsman - everything needed to run and test both simulations.
+# Each part also has its own requirements file if you only need one.
 
-# MuJoCo simulation
-mujoco>=3.1.0
-
-# RL
-gymnasium>=0.29.0
-stable-baselines3>=2.3.0
-
-# Numerical
-numpy>=1.24.0
-
-# Testing
-pytest>=7.4.0
+-r simulation/mujoco/requirements.txt      # CAD-calibrated MuJoCo simulation
+gymnasium>=0.29                             # RL environments (both simulations)
+pybullet>=3.2.6                             # Kai's PyBullet spider (Apple Silicon + Python 3.13: pybullet-arm64)
+pytest>=8.0

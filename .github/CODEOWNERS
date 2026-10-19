@@ -1,0 +1,11 @@
+# Default reviewer: team lead
+*                         @davidmurhi
+/simulation/mujoco/       @davidmurhi
+/simulation/pybullet/     @kai12345689 @Prab-QUT
+/simulation/pybullet/spider_env.py         @Prab-QUT
+/simulation/pybullet/telemetry_bridge.py   @Prab-QUT
+/simulation/pybullet/pwm_mapping.py        @Prab-QUT
+/firmware/                @Prab-QUT
+/dashboard/               @tomotthyy
+/hardware/                @davidmurhi @Prab-QUT
+/docs/                    @davidmurhi
