@@ -1,0 +1,27 @@
+name: Renders
+
+# Screenshots and a walking clip of Kai's PyBullet spider, made headless.
+# Run it from the Actions tab (or by pushing tools/ changes on a phase
+# branch); the images are attached to the run as an artifact.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["phase1/**"]
+    paths: ["tools/render_pybullet.py", ".github/workflows/renders.yml"]
+
+jobs:
+  pybullet:
+    name: PyBullet spider (Kai) screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pybullet numpy pillow
+      - name: Walk the v6 gait headless and capture frames
+        run: python tools/render_pybullet.py --out renders/pybullet
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pybullet-renders
+          path: renders/pybullet

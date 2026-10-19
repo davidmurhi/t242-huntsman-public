@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as it should
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. cd simulation/mujoco
+        2. python controller.py --terrain steps
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: macOS 15 / Apple Silicon, Python 3.12, mujoco 3.3.7
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [simulation, gait / RL, hardware / firmware, dashboard, docs / PM]

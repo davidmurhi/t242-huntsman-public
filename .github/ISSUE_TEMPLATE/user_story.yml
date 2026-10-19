@@ -1,0 +1,39 @@
+name: User story
+description: A piece of value for an operator, V Source or the team
+labels: ["story"]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: As a <who>, I want <what>, so that <why>.
+      placeholder: As a rescue operator, I want the robot to hold its heading on uneven ground, so that it goes where I point it.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we will know it is done. Measurable where possible.
+      placeholder: |
+        - [ ] Walks 3 m on the 'mixed' terrain with under 5 deg heading drift
+        - [ ] Covered by a test in CI
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [simulation, gait / RL, hardware / firmware, dashboard, docs / PM]
+    validations:
+      required: true
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimate (story points)
+      options: ["1", "2", "3", "5", "8", "13"]
+  - type: input
+    id: sprint
+    attributes:
+      label: Sprint
+      placeholder: e.g. P2-S1

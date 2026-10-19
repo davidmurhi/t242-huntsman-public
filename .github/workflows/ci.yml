@@ -1,30 +1,106 @@
-name: Simulation Tests
+name: CI
 
 on:
   push:
-    branches: [ main, dev, simulation ]
+    branches: [main, dev, "phase1/**", "sim/**", simulation, dashboard, firmware]
   pull_request:
-    branches: [ main, dev ]
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  mujoco:
+    name: MuJoCo simulation (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
-    name: MuJoCo simulation unit tests
-
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: simulation/mujoco
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: simulation/mujoco/requirements*.txt
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest gymnasium
+      - name: Build the robot from the CAD and run the build checks
+        run: python spider.py --save
+      - name: Headless walk check (30 s)
+        run: python walk.py --check
+      - name: Tests
+        run: python -m pytest tests -v --durations=10
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+  cad:
+    name: CAD extraction is reproducible
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: simulation/mujoco
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install numpy scipy pillow pytest olefile zstandard opencv-python-headless
+      - name: Re-extract hardware/cad/inventor and compare
+        run: python -m pytest tests/test_cad_reproducible.py tests/test_step_reader.py -v
+
+  pybullet:
+    name: PyBullet simulation and environment
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: simulation/pybullet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: pip install pybullet gymnasium numpy pytest
+      - name: Tests
+        run: python -m pytest tests -v
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install mujoco numpy pytest
+  dashboard:
+    name: Operator dashboard (SvelteKit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npm run check
+      - name: Build
+        run: npm run build
 
-      - name: Run simulation tests
-        run: |
-          python -m pytest simulation/mujoco/tests/ -v --tb=short
+  lint:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - name: Ruff (errors only)
+        run: ruff check --select E9,F63,F7,F82 simulation

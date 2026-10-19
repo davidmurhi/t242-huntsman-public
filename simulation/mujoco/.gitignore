@@ -4,3 +4,4 @@ spider_*.xml
 .env_*.xml
 runs/
 meshes/battery_placed/
+.test_*.xml
