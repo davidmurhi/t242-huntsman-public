@@ -155,7 +155,7 @@ leave Phase 1 with a platform ready for Phase 2.
 
 * V Source sent videos of the powered robot (3 Oct), the Inventor CAD
   and part-weight sheet (15 Oct), and the battery STEP and plate (18
-  Oct). All are in [`hardware/`](../../hardware/README.md).
+  Oct). All are in `hardware/` (partner material, not in this public copy).
 * Prab: telemetry bridge to the dashboard and the angle-to-PWM mapping
   (S4.2, S3.2).
 * Kai: v6 with keyboard driving, turning and seven gears.

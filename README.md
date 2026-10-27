@@ -1,6 +1,8 @@
 # Project Huntsman: learned gait control for a search-and-rescue spider robot
 
-[![CI](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/davidmurhi/T242-Project-Huntsman/actions/workflows/ci.yml)
+> **Public copy for QUT assessment.** V Source Development's design files (CAD, part weights, photos,
+> videos and the simulation geometry generated from the CAD) are not included; see
+> [PUBLIC_COPY.md](PUBLIC_COPY.md). Everything the team wrote is here with its history.
 
 **Team T242 | QUT IFB398 IT Capstone, Phase 1 (2026 Semester 2) |
 Industry partner: [V Source Development](https://www.vsource.dev)**
@@ -15,8 +17,7 @@ and ESP32 stack.
 
 <p align="center">
 <img src="docs/media/mujoco/huntsman_hero.jpg" width="49%" alt="The Huntsman simulated from V Source's CAD">
-<img src="hardware/reference/photos/robot_1.jpg" width="49%" alt="The real Huntsman in V Source's lab">
-<br><em>Left: our simulation, generated from V Source's CAD. Right: the robot in V Source's lab.</em>
+<br><em>Our simulation, generated from V Source's CAD.</em>
 </p>
 
 ## The two spiders
@@ -89,7 +90,7 @@ simulation/
   mujoco-evaluation/   Sprint 3 framework evaluation and diagnostic harness
 dashboard/             SvelteKit operator console (Tom)
 firmware/              Pi 5 and ESP32 integration notes (Prab)
-hardware/              V Source's CAD, battery files, part weights, photos and video
+hardware/              (not in this copy) V Source's CAD, part weights, photos and video
 docs/                  project definition, sprints, backlog, decisions, meetings, testing, diagrams
 research/              research links and notes
 tools/                 diagram and render generators, CI helpers
@@ -104,7 +105,7 @@ tools/                 diagram and render generators, CI helpers
   [backlog](docs/agile/backlog.md)
 * **Outputs:** [architecture](docs/architecture.md),
   [decision records](docs/decisions/README.md),
-  [testing](docs/testing.md), [hardware](hardware/README.md)
+  [testing](docs/testing.md)
 * **Operation:** [how we work](docs/agile/way_of_working.md),
   [meetings](docs/meetings/README.md),
   [contributing](CONTRIBUTING.md)
@@ -121,7 +122,7 @@ tools/                 diagram and render generators, CI helpers
 | Tom Huynh ([@tomotthyy](https://github.com/tomotthyy)) | Operator interface | SvelteKit dashboard, telemetry protocol |
 
 **Industry partner:** Craig Schneider, Founder and CTO, V Source
-Development (craig@vsource.dev). CAD and part data by V Source
+Development. CAD and part data by V Source
 engineer Ronan Donahoe.
 
 The hardware files in `hardware/` belong to V Source Development and

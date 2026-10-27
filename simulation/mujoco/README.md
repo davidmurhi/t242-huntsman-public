@@ -8,7 +8,6 @@ pad, or the team's operator dashboard.
 
 ![The CAD-built Huntsman in MuJoCo](../../docs/media/mujoco/huntsman_hero.jpg)
 
-![V Source render beside the simulation](media/cad_vs_sim.png)
 
 ```
 pip install mujoco numpy pillow scipy

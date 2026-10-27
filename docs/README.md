@@ -13,7 +13,7 @@
 | | [Decision records](decisions/README.md) |
 | | [Testing and CI](testing.md) |
 | | [Simulation stack, Week 9 snapshot](simulation_stack.md) (Kai) |
-| **Hardware** | [The robot, CAD and partner files](../hardware/README.md) |
+| **Hardware** | The robot, CAD and partner files (V Source material, not in this public copy) |
 
 Media: [`media/mujoco`](media/mujoco) (renders of the CAD-built robot),
 [`media/pybullet`](media/pybullet) (Kai's prototype), and
