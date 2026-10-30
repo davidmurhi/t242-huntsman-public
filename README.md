@@ -20,6 +20,20 @@ and ESP32 stack.
 <br><em>Our simulation, generated from V Source's CAD.</em>
 </p>
 
+## For assessors: where to find the evidence
+
+Every artefact linked from our Phase 1 report is in this repository and opens
+without an account. V Source's own photos, videos and CAD renders are on our
+[Canvas group page](https://canvas.qut.edu.au/groups/225191/pages/project-huntsman-partner-evidence-teaching-team-only) (teaching team only).
+
+| Report section | Evidence |
+|---|---|
+| **Definition** | [Project definition and requirements](docs/project/definition.md) · [risks, ethics and governance](docs/project/risks_and_ethics.md) · [partner kickoff minutes](docs/meetings/2026-09-02_craig_kickoff.md) · [user stories (product backlog)](docs/agile/backlog.md) |
+| **Planning** | [Phase 1 sprint record](docs/sprints/phase1.md) · [Phase 2 plan](docs/sprints/phase2_plan.md) · [decision records](docs/decisions/README.md) · [how we work](docs/agile/way_of_working.md) |
+| **Outputs** | [MuJoCo simulation from the CAD](simulation/mujoco/) · [PyBullet prototype and PPO training](simulation/pybullet/) · [operator console](dashboard/) · [Pi 5 to ESP32 link](firmware/README.md) · [tests and CI](docs/testing.md) |
+| **Operation** | [meeting notes and tutor summaries](docs/meetings/README.md) · [contributing and review rules](CONTRIBUTING.md) · [code owners](.github/CODEOWNERS) |
+| **Images and video** | [image gallery](docs/media/GALLERY.md) · [video index](docs/media/video/VIDEOS.md) |
+
 ## The two spiders
 
 <table>
@@ -44,8 +58,12 @@ environment for Phase 2.</td>
 
 ### Quick start: CAD-calibrated simulation
 
+The MuJoCo model is built from V Source's CAD files, which are not in this
+public copy, so this step runs only in the team's private repository. The
+[controls video](docs/media/video/controls_demo.mp4) shows it running.
+
 ```bash
-git clone https://github.com/davidmurhi/T242-Project-Huntsman.git
+git clone https://github.com/davidmurhi/T242-Project-Huntsman.git   # private: team and V Source only
 cd T242-Project-Huntsman/simulation/mujoco
 python3 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -59,8 +77,11 @@ team's dashboard can connect on `ws://localhost:8765/ws`.
 
 ### Quick start: PyBullet prototype
 
+This one runs from this public copy:
+
 ```bash
-cd T242-Project-Huntsman/simulation/pybullet
+git clone https://github.com/davidmurhi/t242-huntsman-public.git
+cd t242-huntsman-public/simulation/pybullet
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt  # Apple Silicon + Python 3.13: pip install pybullet-arm64
 python spider8_v6.py             # arrows/WASD to drive, E/Q gears, Space to stop
@@ -121,9 +142,10 @@ tools/                 diagram and render generators, CI helpers
 | Prabhanjan Muthukannan ([@Prab-QUT](https://github.com/Prab-QUT)) | Hardware and embedded | Pi 5 and ESP32, Gymnasium environment, telemetry bridge, servo mapping |
 | Tom Huynh ([@tomotthyy](https://github.com/tomotthyy)) | Operator interface | SvelteKit dashboard, telemetry protocol |
 
-**Industry partner:** Craig Schneider, Founder and CTO, V Source
+**Industry partner:** Craig Schneider, Founder and Technical Director, V Source
 Development. CAD and part data by V Source
 engineer Ronan Donahoe.
 
-The hardware files in `hardware/` belong to V Source Development and
-are shared for this project only.
+V Source's hardware files (CAD, part weights, photos and video) belong to
+V Source Development and are shared for this project only; they are not in
+this public copy.

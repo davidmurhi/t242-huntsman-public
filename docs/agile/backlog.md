@@ -46,7 +46,7 @@ end of Phase 1.
 |---|---|---|---|---|---|
 | S4.1 | As an operator, I want a mission-control screen | gait mode, drive pad, e-stop, telemetry, map and diagnostics screens | M | 5 | Done S3 (Tom, mock data) |
 | S4.2 | As an operator, I want live orientation from the simulation | roll, pitch and yaw over WebSocket at 30 Hz or more | M | 3 | Done S4 (Prab bridge; controller.py) |
-| S4.3 | As an operator, I want to drive the simulation from the dashboard | drive, hold, gait and e-stop commands; dead-man on dropped connection | M | 3 | Done S4 (protocol); dashboard wiring P2-S1 |
+| S4.3 | As an operator, I want to drive the simulation from the dashboard | drive, hold, gait and e-stop commands; dead-man on dropped connection | M | 3 | Done S4 (protocol); console wiring before P2-S1 |
 | S4.4 | As V Source, I want the command channel secured | authentication before commands reach hardware | M | 3 | P2-S4 |
 
 ## E5: Project and quality

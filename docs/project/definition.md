@@ -1,7 +1,7 @@
 # Project definition
 
 **P647 - Project Huntsman** | Industry partner: V Source Development
-(Craig Schneider, Founder and CTO) | Team T242, IFB398 Phase 1, 2026
+(Craig Schneider, Founder and Technical Director) | Team T242, IFB398 Phase 1, 2026
 Semester 2
 
 ## Context

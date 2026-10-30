@@ -23,6 +23,18 @@ dependencies on V Source.
 
 ## Sprints
 
+### Before semester (break)
+
+* **Goal:** everything that does not need the robot is ready, so the
+  first robot session is spent on the robot.
+* **Items:**
+  * book robot sessions with V Source and obtain the servo datasheet
+    (David)
+  * one-servo bench rig with the Pi 5 and ESP32 (Prab)
+  * S4.3 console wired to the live drive commands (Tom)
+  * training dry run on V Source compute (Kai)
+* **Accept when:** sessions are booked and the bench rig moves a servo.
+
 ### P2-S1: Hardware bring-up
 
 * **Goal:** the robot moves under our software, safely.
@@ -32,9 +44,11 @@ dependencies on V Source.
   * S3.2 replace the PWM placeholder with datasheet values
   * the drive protocol on the Pi 5 (`controller.py` without the
     simulation)
-  * S4.3 dashboard wired to live commands
+  * training set up on V Source compute
+  * stand test of the e-stop and dead-man
   * S1.7 `case2` and rail parts into the model
-* **Owners:** Prab (hardware), David (gait on the Pi), Tom (dashboard).
+* **Owners:** Prab (servo order, signal range), David (gait on the Pi 5),
+  Kai (training set up on V Source compute); all (stand test).
 * **Accept when:**
   * all 24 joints move the expected way
   * the e-stop and dead-man are tested on a stand
@@ -51,7 +65,9 @@ dependencies on V Source.
   * measure friction on test surfaces
   * compare standing pose and walking speed with the simulation
   * set the domain-randomisation ranges from the measured spread
-* **Owners:** Prab, David, Kai.
+* **Owners:** Prab and David (servo measurements), Kai (friction, stance
+  and speed), David and Kai (servo model, randomisation ranges), Tom
+  (logging robot telemetry).
 * **Accept when:** joint responses and flat-ground walking speed agree
   within 20%.
 * **Depends on:** P2-S1.
@@ -65,8 +81,10 @@ dependencies on V Source.
   * curriculum and reward tuning
   * evaluation suite: fixed seeds, all terrains, five runs each, with
     the gait-only baseline for comparison
-* **Owners:** Kai (training), David (environment), Prab (compute
-  set-up).
+  * map and diagnostics screens on live data
+* **Owners:** Kai (training), Kai and David (reward and curriculum),
+  David (evaluation suite), Prab (compute monitoring), Tom (console
+  screens).
 * **Accept when:** steps and rubble over 3 m in 30 s, tilt under 25 deg,
   no leg contact, no regression on flat or slope.
 * **Depends on:** compute access (requirements already sent).
@@ -81,7 +99,9 @@ dependencies on V Source.
   * S3.4 ESP32 command API
   * S4.4 authentication on the command channel
   * fallback to the hand gait on fault
-* **Owners:** Prab, Kai, Tom.
+* **Owners:** Kai and Prab (policy on the Pi 5), Prab (ESP32 command
+  API), Tom (command-channel authentication), David (fallback to the
+  hand-written gait).
 * **Accept when:**
   * walks on flat ground under the policy within 20% of simulated speed
   * policy inference under 10 ms
@@ -95,6 +115,7 @@ dependencies on V Source.
   * a test course (ramp, 50 mm steps, rubble)
   * recorded runs with the policy and the baseline
   * live telemetry on the dashboard
+  * usability check of the console with Craig as the operator (Tom)
   * fix what the trials expose
 * **Owners:** all.
 * **Accept when:** recorded comparison on each terrain; a list of
