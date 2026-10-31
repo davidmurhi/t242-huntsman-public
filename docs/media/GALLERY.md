@@ -19,13 +19,15 @@ and renders of its CAD are on our [Canvas group page](https://canvas.qut.edu.au/
 
 ![Slope, steps and rubble](mujoco/terrains.jpg)
 
-The three terrains used to measure the hand-written baseline gait:
+The terrains used to measure the hand-written baseline gait, with a 30 s
+recording of each run:
 
-| Terrain | Baseline gait, distance in 30 s |
-|---|---|
-| ![15 degree slope](mujoco/terrain_slope.jpg) 15° slope | 3.5 m |
-| ![50 mm steps](mujoco/terrain_steps.jpg) 50 mm steps | 0.8 m |
-| ![80 mm rubble](mujoco/terrain_rubble.jpg) 80 mm rubble | 0.6 m |
+| Terrain | Baseline gait, distance in 30 s | Recording |
+|---|---|---|
+| ![15 degree slope](mujoco/terrain_slope.jpg) 15° slope | 3.5 m | [video](video/terrain_slope.mp4) |
+| Mixed ground (slope, steps and rubble) | 2.9 m | [video](video/terrain_mixed.mp4) |
+| ![50 mm steps](mujoco/terrain_steps.jpg) 50 mm steps | 0.8 m | [video](video/terrain_steps.mp4) |
+| ![80 mm rubble](mujoco/terrain_rubble.jpg) 80 mm rubble | 0.6 m | [video](video/terrain_rubble.mp4) |
 
 The Phase 2 target is more than 3 m in 30 s on steps and rubble.
 

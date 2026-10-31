@@ -32,7 +32,7 @@ without an account. V Source's own photos, videos and CAD renders are on our
 | **Planning** | [Phase 1 sprint record](docs/sprints/phase1.md) · [Phase 2 plan](docs/sprints/phase2_plan.md) · [decision records](docs/decisions/README.md) · [how we work](docs/agile/way_of_working.md) |
 | **Outputs** | [MuJoCo simulation from the CAD](simulation/mujoco/) · [PyBullet prototype and PPO training](simulation/pybullet/) · [operator console](dashboard/) · [Pi 5 to ESP32 link](firmware/README.md) · [tests and CI](docs/testing.md) |
 | **Operation** | [meeting notes and tutor summaries](docs/meetings/README.md) · [contributing and review rules](CONTRIBUTING.md) · [code owners](.github/CODEOWNERS) |
-| **Images and video** | [image gallery](docs/media/GALLERY.md) · [video index](docs/media/video/VIDEOS.md) |
+| **Images and video** | [image gallery](docs/media/GALLERY.md) · [video index](docs/media/video/VIDEOS.md) · [operator controls](docs/media/video/controls_demo.mp4) · baseline gait on [slope](docs/media/video/terrain_slope.mp4), [mixed ground](docs/media/video/terrain_mixed.mp4), [steps](docs/media/video/terrain_steps.mp4) and [rubble](docs/media/video/terrain_rubble.mp4) |
 
 ## The two spiders
 
