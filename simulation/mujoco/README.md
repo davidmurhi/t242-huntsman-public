@@ -107,6 +107,11 @@ Measured over 30 s (rubble gait, 0.12 m/s asked, 3.5 m possible):
 | steps 50 mm | 0.8 m | stalls at the first step |
 | rubble 80 mm | 0.6 m | snags on rocks, veers 27 deg |
 
+Recordings of each run: [slope](../../docs/media/video/terrain_slope.mp4),
+[mixed](../../docs/media/video/terrain_mixed.mp4),
+[steps](../../docs/media/video/terrain_steps.mp4) and
+[rubble](../../docs/media/video/terrain_rubble.mp4).
+
 That gap is what the learned controller is for. `huntsman_env.py` is
 the training environment (Gymnasium), `train.py` trains it with PPO
 (Stable-Baselines3) and `watch_policy.py` shows the result.
