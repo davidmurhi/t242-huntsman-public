@@ -4,7 +4,7 @@
 It should cross terrain the current controller cannot, and be driven
 from the operator dashboard.
 
-Six fortnightly sprints, the same cadence as Phase 1. Each sprint has a
+Six sprints of two to three weeks (the handover sprint runs weeks 11-13). Each sprint has a
 goal, the backlog items it pulls, acceptance criteria, owners and its
 dependencies on V Source.
 

@@ -1,6 +1,6 @@
 # How the team works
 
-Team T242 uses Scrum-style fortnightly sprints, run on a Kanban board.
+Team T242 uses Scrum-style sprints of one to two weeks, run on a Kanban board.
 The cadence follows the two fixed rhythms of the project: fortnightly
 tutor meetings (QUT) and fortnightly partner meetings (V Source, in the
 off week). Each sprint therefore ends with a review in front of one of
