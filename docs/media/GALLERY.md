@@ -46,10 +46,9 @@ The Phase 2 target is more than 3 m in 30 s on steps and rubble.
 |---|---|
 | ![Mission control](dashboard/mission.png) | ![Map and route](dashboard/map.png) |
 | Mission control: gait mode, drive pad, emergency stop, telemetry. | Map and route: waypoints and site map. |
-| ![Diagnostics](dashboard/diagnostics.png) | |
-| Diagnostics: joint temperature and torque, subsystem health. | |
 
-All three screens run on sample data in Phase 1; wiring them to the live
+The console also has a Diagnostics screen (joint temperature and torque for all
+24 servos, subsystem health). All three screens run on sample data in Phase 1; wiring them to the live
 drive protocol is the first Phase 2 task.
 
 ## Diagrams

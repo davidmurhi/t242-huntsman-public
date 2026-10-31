@@ -27,10 +27,14 @@ export const waypoints = [
 // [leg, joint, temperature C, torque %]
 /** @type {[string, string, number, number][]} */
 const jointRows = [
-	['FL', 'Hip', 41, 18], ['FL', 'Thigh', 47, 42], ['FL', 'Calf', 52, 55],
-	['FR', 'Hip', 40, 17], ['FR', 'Thigh', 46, 40], ['FR', 'Calf', 50, 51],
-	['RL', 'Hip', 42, 20], ['RL', 'Thigh', 49, 44], ['RL', 'Calf', 58, 63],
-	['RR', 'Hip', 41, 19], ['RR', 'Thigh', 48, 43], ['RR', 'Calf', 54, 57]
+	['L1', 'Hip', 40, 18], ['L1', 'Knee', 45, 44], ['L1', 'Ankle', 53, 53],
+	['R1', 'Hip', 39, 15], ['R1', 'Knee', 45, 44], ['R1', 'Ankle', 54, 55],
+	['L2', 'Hip', 45, 14], ['L2', 'Knee', 46, 46], ['L2', 'Ankle', 54, 56],
+	['R2', 'Hip', 41, 16], ['R2', 'Knee', 51, 39], ['R2', 'Ankle', 52, 54],
+	['L3', 'Hip', 39, 24], ['L3', 'Knee', 51, 42], ['L3', 'Ankle', 56, 55],
+	['R3', 'Hip', 40, 16], ['R3', 'Knee', 47, 42], ['R3', 'Ankle', 55, 56],
+	['L4', 'Hip', 39, 23], ['L4', 'Knee', 47, 48], ['L4', 'Ankle', 53, 59],
+	['R4', 'Hip', 40, 16], ['R4', 'Knee', 46, 45], ['R4', 'Ankle', 52, 52]
 ];
 
 export const joints = jointRows.map(([leg, joint, temp, torque]) => ({ leg, joint, temp, torque }));
