@@ -9,7 +9,7 @@
 
 ## About Craig
 
-Founder and CTO of V Source Development, a QUT computer science
+Founder and Technical Director of V Source Development, a QUT computer science
 graduate, now finishing engineering (computer and software systems,
 robotics). He is also researching tetrahedral localisation of drones
 with microphone arrays and time of arrival. These arrays are planned for

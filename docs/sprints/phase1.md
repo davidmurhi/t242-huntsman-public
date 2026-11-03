@@ -1,6 +1,6 @@
 # Phase 1 sprint record (IFB398, 2026 Semester 2)
 
-Sprints are fortnightly and end at a tutor or partner review. Each record
+Sprints run one to two weeks and end at a tutor or partner review. Each record
 gives the sprint goal, what was done (with evidence in the repository or
 the meeting notes), the review outcome, and the retrospective. Story IDs
 refer to the [backlog](../agile/backlog.md).
@@ -153,9 +153,11 @@ leave Phase 1 with a platform ready for Phase 2.
 
 **Done**
 
-* V Source sent videos of the powered robot (3 Oct), the Inventor CAD
-  and part-weight sheet (15 Oct), and the battery STEP and plate (18
-  Oct). All are in `hardware/` (partner material, not in this public copy).
+* V Source sent videos of the powered robot (3 Oct) and the Inventor CAD
+  and part-weight sheet (15 Oct). The CAD pack did not include the Makita
+  battery part, so the team identified the pack from the videos (18 V LXT
+  5.0 Ah) and sourced its STEP model and mounting plate (18 Oct). These
+  are in `hardware/` (not in this public copy).
 * Prab: telemetry bridge to the dashboard and the angle-to-PWM mapping
   (S4.2, S3.2).
 * Kai: v6 with keyboard driving, turning and seven gears.
@@ -191,7 +193,7 @@ with Craig through the repository.
 **Retrospective**
 
 * Keep: building tooling (readers, checks, tests) instead of hand-copying
-  numbers. When the battery files arrived on 18 Oct they were in the
+  numbers. When we sourced the battery files on 18 Oct they were in the
   simulation the same day.
 * Change: long-lived area branches drifted apart. Phase 2 uses one
   `main` with short branches and CI.
